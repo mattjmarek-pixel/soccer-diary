@@ -1,0 +1,192 @@
+Perfect. Here’s a step-by-step Replit Agent task breakdown for building the Soccer Diary native app. This breaks the project into discrete AI-executable tasks so that Replit can methodically create a polished, production-ready native app without skipping anything.
+
+⸻
+
+Soccer Diary — Replit Agent Step-by-Step Tasks
+
+Phase 1: Project Setup
+
+Task 1: Scaffold Project
+	•	Create a new React Native (Expo) project called SoccerDiary.
+	•	Install essential packages:
+	•	Navigation: @react-navigation/native + bottom tabs
+	•	State management: zustand or Redux
+	•	Video: expo-av or react-native-video
+	•	Storage: expo-file-system for offline caching
+	•	Auth: Firebase Auth or Supabase Auth
+	•	Database: Supabase/PostgreSQL client
+	•	Setup folder structure:
+
+/components
+/screens
+/navigation
+/services
+/utils
+/assets
+
+
+
+Deliverable: Project skeleton with working navigation.
+
+⸻
+
+Phase 2: Authentication & User Profiles
+
+Task 2: User Auth
+	•	Implement signup/login/logout using email/password.
+	•	Securely store session tokens.
+	•	Protect all routes for authenticated users only.
+	•	Optional: Add Google/Facebook login.
+
+Task 3: User Profiles
+	•	Create user profile screen.
+	•	Fields: Name, Age, Team, Position, Preferred Foot.
+	•	Ability to edit profile.
+	•	Sync profile with backend DB.
+
+Deliverable: Fully working auth flow and editable profile.
+
+⸻
+
+Phase 3: Diary Entries
+
+Task 4: Diary CRUD
+	•	Screen to create new diary entry with:
+	•	Text reflection
+	•	Mood rating (1–5)
+	•	Training duration
+	•	Date auto-generated
+	•	Edit, delete, view existing entries
+	•	Offline-first functionality with queued sync
+
+Task 5: Training Logs
+	•	Add skill categories per diary entry:
+	•	Dribbling, Shooting, Passing, First Touch, Fitness, Tactics
+	•	Notes per skill
+	•	Store in backend DB linked to diary entry
+
+Deliverable: Fully functional diary + skill logs, offline-capable.
+
+⸻
+
+Phase 4: Video Upload & Playback
+
+Task 6: Video Recording & Upload
+	•	Allow recording directly in-app or uploading from device
+	•	Compress video before upload
+	•	Store file reference in backend
+	•	Offline caching and deferred uploads
+
+Task 7: Video Playback
+	•	Display video thumbnails in timeline
+	•	Full playback on diary detail page
+	•	Optional: side-by-side comparison for older vs newer videos
+
+Deliverable: Video upload, playback, and offline support fully working.
+
+⸻
+
+Phase 5: Timeline & Navigation
+
+Task 8: Progress Timeline
+	•	Chronological feed showing:
+	•	Date, diary preview, skills worked on, video thumbnails
+	•	Click into entry for full details
+	•	Lazy load entries for performance
+	•	Add filter by date, skill, or keyword
+
+Task 9: Bottom Tab Navigation
+	•	Tabs: Timeline / New Entry / Profile
+	•	Smooth transitions and gestures
+	•	Native look-and-feel
+
+Deliverable: Timeline + navigation fully implemented.
+
+⸻
+
+Phase 6: Search & Filters
+
+Task 10: Implement Search
+	•	Search text across diary entries
+	•	Filter entries by skill category
+	•	Filter by date range
+
+Deliverable: Functional search and filter system.
+
+⸻
+
+Phase 7: Offline-First & Sync
+
+Task 11: Offline Support
+	•	Entries and videos can be created offline
+	•	Sync automatically when online
+	•	Show sync status to user
+	•	Handle conflicts if needed
+
+Deliverable: Reliable offline-first experience.
+
+⸻
+
+Phase 8: UI/UX Polish
+
+Task 12: Apply Design & Animations
+	•	Clean, athletic theme (green/black/white)
+	•	Large tap targets for mobile
+	•	Gesture support for swipes/back navigation
+	•	Smooth transitions between screens
+	•	Streaks, milestones, weekly summary (visual feedback)
+
+Deliverable: Polished mobile-first UI that feels habit-forming.
+
+⸻
+
+Phase 9: Monetization Prep
+
+Task 13: Free vs Premium Logic
+	•	Free tier: unlimited text entries, limited videos
+	•	Premium tier: unlimited videos, cloud backup, analytics
+	•	Include upgrade button and flow
+	•	Do NOT block journaling for free users
+
+Deliverable: Ready-to-implement premium logic.
+
+⸻
+
+Phase 10: Testing & Deployment
+
+Task 14: Testing
+	•	Unit test core components
+	•	Test diary CRUD, video uploads, offline sync
+	•	Beta test on TestFlight / Play Store beta
+	•	Collect feedback
+
+Task 15: Deployment Prep
+	•	App Store & Play Store readiness:
+	•	Privacy Policy & Terms
+	•	Permission requests
+	•	Secure authentication
+	•	App metadata & screenshots
+	•	Prepare build scripts for iOS & Android
+
+Deliverable: Production-ready build for submission.
+
+⸻
+
+Phase 11: Documentation
+
+Task 16: README & Developer Docs
+	•	How to run project locally
+	•	Folder structure & architecture
+	•	API endpoints
+	•	Future improvement roadmap
+	•	Notes on offline/video handling
+
+⸻
+
+This step-by-step breakdown will guide the AI (or your dev team) to produce a fully native, professional-quality Soccer Diary app, feature by feature, without skipping any critical component.
+
+⸻
+
+If you want, I can convert this entire plan into a single “super Replit Agent prompt”, so you can paste it into Replit and the AI will attempt to build the whole app step by step automatically, with instructions for each phase.
+
+Do you want me to do that?
