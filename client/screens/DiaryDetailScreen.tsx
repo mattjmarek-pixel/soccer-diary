@@ -13,6 +13,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import { HeaderButton } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
+import { VideoView, useVideoPlayer } from "expo-video";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
@@ -24,6 +25,23 @@ type DiaryDetailRouteProp = RouteProp<RootStackParamList, "DiaryDetail">;
 type DiaryDetailNavigationProp = NativeStackNavigationProp<RootStackParamList, "DiaryDetail">;
 
 const moodLabels = ["Terrible", "Bad", "Okay", "Good", "Great"];
+
+function VideoPlayer({ videoUri }: { videoUri: string }) {
+  const player = useVideoPlayer(videoUri, (player) => {
+    player.loop = false;
+  });
+
+  return (
+    <Card elevation={1} style={styles.videoCard}>
+      <VideoView
+        style={styles.video}
+        player={player}
+        allowsFullscreen
+        allowsPictureInPicture
+      />
+    </Card>
+  );
+}
 
 export default function DiaryDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -160,14 +178,7 @@ export default function DiaryDetailScreen() {
           <ThemedText type="small" style={styles.sectionLabel}>
             Video
           </ThemedText>
-          <Card elevation={1} style={styles.videoCard}>
-            <View style={styles.videoPlaceholder}>
-              <Feather name="play-circle" size={48} color={Colors.dark.primary} />
-              <ThemedText type="body" style={styles.videoText}>
-                Video attached
-              </ThemedText>
-            </View>
-          </Card>
+          <VideoPlayer videoUri={entry.videoUri} />
         </View>
       ) : null}
     </ScrollView>
@@ -254,13 +265,12 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   videoCard: {
-    padding: Spacing.xl,
+    padding: Spacing.sm,
+    overflow: "hidden",
   },
-  videoPlaceholder: {
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  videoText: {
-    color: Colors.dark.textSecondary,
+  video: {
+    width: "100%",
+    height: 200,
+    borderRadius: BorderRadius.sm,
   },
 });
