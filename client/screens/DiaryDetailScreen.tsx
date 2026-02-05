@@ -1,10 +1,11 @@
-import React, { useLayoutEffect } from "react";
+import React, { useLayoutEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
   ScrollView,
   Alert,
   Pressable,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -13,6 +14,8 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import { HeaderButton } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
+import * as Sharing from "expo-sharing";
+import { captureRef } from "react-native-view-shot";
 import { VideoView, useVideoPlayer } from "expo-video";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -49,8 +52,35 @@ export default function DiaryDetailScreen() {
   const navigation = useNavigation<DiaryDetailNavigationProp>();
   const route = useRoute<DiaryDetailRouteProp>();
   const { getEntry, deleteEntry } = useDiary();
+  const shareCardRef = useRef<View>(null);
 
   const entry = getEntry(route.params.entryId);
+
+  const handleShare = async () => {
+    if (!entry) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert("Sharing", "Sharing is not available on this device.");
+        return;
+      }
+
+      if (shareCardRef.current) {
+        const uri = await captureRef(shareCardRef, {
+          format: "png",
+          quality: 1,
+        });
+        await Sharing.shareAsync(uri, {
+          mimeType: "image/png",
+          dialogTitle: "Share Training Session",
+        });
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to share. Please try again.");
+    }
+  };
 
   useLayoutEffect(() => {
     if (entry) {
@@ -64,6 +94,9 @@ export default function DiaryDetailScreen() {
         headerTitle: formattedDate,
         headerRight: () => (
           <View style={styles.headerButtons}>
+            <HeaderButton onPress={handleShare}>
+              <Feather name="share-2" size={20} color={Colors.dark.primary} />
+            </HeaderButton>
             <HeaderButton
               onPress={() => navigation.navigate("NewEntry", { entry })}
             >
@@ -181,6 +214,38 @@ export default function DiaryDetailScreen() {
           <VideoPlayer videoUri={entry.videoUri} />
         </View>
       ) : null}
+
+      <View style={styles.shareCardWrapper} collapsable={false} ref={shareCardRef}>
+        <View style={styles.shareCard}>
+          <View style={styles.shareHeader}>
+            <Feather name="activity" size={20} color={Colors.dark.primary} />
+            <ThemedText type="heading" style={styles.shareAppName}>
+              Soccer Diary
+            </ThemedText>
+          </View>
+          <View style={styles.shareBody}>
+            <ThemedText type="display" style={[styles.shareMood, { color: moodColor }]}>
+              {moodLabels[entry.mood - 1]}
+            </ThemedText>
+            <ThemedText type="body" style={styles.shareDetail}>
+              {entry.duration} min training session
+            </ThemedText>
+            {entry.skills.length > 0 ? (
+              <ThemedText type="small" style={styles.shareSkills}>
+                {entry.skills.map((s) => s.category).join(" / ")}
+              </ThemedText>
+            ) : null}
+            <ThemedText type="small" style={styles.shareDate}>
+              {new Date(entry.date).toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </ThemedText>
+          </View>
+        </View>
+      </View>
     </ScrollView>
   );
 }
@@ -272,5 +337,44 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 200,
     borderRadius: BorderRadius.sm,
+  },
+  shareCardWrapper: {
+    position: "absolute",
+    left: -1000,
+    top: -1000,
+  },
+  shareCard: {
+    width: 360,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    padding: Spacing["2xl"],
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+  },
+  shareHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xl,
+  },
+  shareAppName: {
+    color: Colors.dark.primary,
+  },
+  shareBody: {
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  shareMood: {
+    fontSize: 32,
+  },
+  shareDetail: {
+    color: Colors.dark.text,
+  },
+  shareSkills: {
+    color: Colors.dark.textSecondary,
+  },
+  shareDate: {
+    color: Colors.dark.textSecondary,
+    marginTop: Spacing.sm,
   },
 });

@@ -9,6 +9,9 @@ import AuthScreen from "@/screens/AuthScreen";
 import NewEntryScreen from "@/screens/NewEntryScreen";
 import DiaryDetailScreen from "@/screens/DiaryDetailScreen";
 import EditProfileScreen from "@/screens/EditProfileScreen";
+import InsightsScreen from "@/screens/InsightsScreen";
+import TemplatesScreen from "@/screens/TemplatesScreen";
+import UpgradeScreen from "@/screens/UpgradeScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import { Colors } from "@/constants/theme";
@@ -21,6 +24,9 @@ export type RootStackParamList = {
   NewEntry: { entry?: DiaryEntry } | undefined;
   DiaryDetail: { entryId: string };
   EditProfile: undefined;
+  Insights: undefined;
+  Templates: undefined;
+  Upgrade: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -85,6 +91,45 @@ export default function RootStackNavigator() {
         options={({ navigation }) => ({
           presentation: "modal",
           headerTitle: "Edit Profile",
+          headerLeft: () => (
+            <HeaderButton onPress={() => navigation.goBack()}>
+              <Feather name="x" size={24} color={Colors.dark.text} />
+            </HeaderButton>
+          ),
+        })}
+      />
+      <Stack.Screen
+        name="Insights"
+        component={InsightsScreen}
+        options={({ navigation }) => ({
+          presentation: "modal",
+          headerTitle: "AI Insights",
+          headerLeft: () => (
+            <HeaderButton onPress={() => navigation.goBack()}>
+              <Feather name="x" size={24} color={Colors.dark.text} />
+            </HeaderButton>
+          ),
+        })}
+      />
+      <Stack.Screen
+        name="Templates"
+        component={TemplatesScreen}
+        options={({ navigation }) => ({
+          presentation: "modal",
+          headerTitle: "Templates",
+          headerLeft: () => (
+            <HeaderButton onPress={() => navigation.goBack()}>
+              <Feather name="x" size={24} color={Colors.dark.text} />
+            </HeaderButton>
+          ),
+        })}
+      />
+      <Stack.Screen
+        name="Upgrade"
+        component={UpgradeScreen}
+        options={({ navigation }) => ({
+          presentation: "modal",
+          headerTitle: "Go Pro",
           headerLeft: () => (
             <HeaderButton onPress={() => navigation.goBack()}>
               <Feather name="x" size={24} color={Colors.dark.text} />

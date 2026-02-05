@@ -14,12 +14,16 @@ import Animated, {
 } from "react-native-reanimated";
 
 import TimelineStackNavigator from "@/navigation/TimelineStackNavigator";
+import StatsStackNavigator from "@/navigation/StatsStackNavigator";
+import AchievementsStackNavigator from "@/navigation/AchievementsStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 export type MainTabParamList = {
   TimelineTab: undefined;
+  StatsTab: undefined;
+  AchievementsTab: undefined;
   ProfileTab: undefined;
 };
 
@@ -104,6 +108,26 @@ export default function MainTabNavigator() {
             title: "Timeline",
             tabBarIcon: ({ color, size }) => (
               <Feather name="clock" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="StatsTab"
+          component={StatsStackNavigator}
+          options={{
+            title: "Stats",
+            tabBarIcon: ({ color, size }) => (
+              <Feather name="bar-chart-2" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="AchievementsTab"
+          component={AchievementsStackNavigator}
+          options={{
+            title: "Badges",
+            tabBarIcon: ({ color, size }) => (
+              <Feather name="award" size={size} color={color} />
             ),
           }}
         />

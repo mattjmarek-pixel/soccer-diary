@@ -10,9 +10,12 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { ThemedText } from "@/components/ThemedText";
 import { StatCard } from "@/components/StatCard";
 import { SettingsRow } from "@/components/SettingsRow";
+import { CalendarHeatmap } from "@/components/CalendarHeatmap";
+import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDiary } from "@/contexts/DiaryContext";
+import { usePremium } from "@/contexts/PremiumContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 export default function ProfileScreen() {
@@ -21,7 +24,8 @@ export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { user, signOut } = useAuth();
-  const { stats } = useDiary();
+  const { entries, stats } = useDiary();
+  const { isPremium, subscriptionTier } = usePremium();
 
   const handleEditProfile = () => {
     navigation.navigate("EditProfile");
@@ -84,13 +88,20 @@ export default function ProfileScreen() {
             {user.team}
           </ThemedText>
         ) : null}
-        {user?.position ? (
-          <View style={styles.positionBadge}>
-            <ThemedText type="small" style={styles.positionText}>
-              {user.position}
+        <View style={styles.badgeRow}>
+          {user?.position ? (
+            <View style={styles.positionBadge}>
+              <ThemedText type="small" style={styles.positionText}>
+                {user.position}
+              </ThemedText>
+            </View>
+          ) : null}
+          <View style={[styles.positionBadge, isPremium ? styles.proBadge : styles.freeBadge]}>
+            <ThemedText type="small" style={[styles.positionText, isPremium ? styles.proText : styles.freeText]}>
+              {isPremium ? "PRO" : "FREE"}
             </ThemedText>
           </View>
-        ) : null}
+        </View>
       </View>
 
       <View style={styles.statsSection}>
@@ -117,6 +128,36 @@ export default function ProfileScreen() {
             color="#FF6B6B"
           />
         </View>
+      </View>
+
+      <View style={styles.heatmapSection}>
+        <ThemedText type="small" style={styles.sectionLabel}>
+          Activity
+        </ThemedText>
+        <Card elevation={1} style={styles.heatmapCard}>
+          <CalendarHeatmap entries={entries} weeks={12} />
+        </Card>
+      </View>
+
+      <View style={styles.settingsSection}>
+        <ThemedText type="small" style={styles.sectionLabel}>
+          Features
+        </ThemedText>
+        <SettingsRow
+          icon="clipboard"
+          label="Training Templates"
+          onPress={() => navigation.navigate("Templates")}
+        />
+        <SettingsRow
+          icon="cpu"
+          label="AI Insights"
+          onPress={() => navigation.navigate("Insights")}
+        />
+        <SettingsRow
+          icon="star"
+          label={isPremium ? "Manage Subscription" : "Upgrade to Pro"}
+          onPress={() => navigation.navigate("Upgrade")}
+        />
       </View>
 
       <View style={styles.settingsSection}>
@@ -167,6 +208,10 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     marginBottom: Spacing.sm,
   },
+  badgeRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
   positionBadge: {
     backgroundColor: Colors.dark.primary + "20",
     paddingVertical: Spacing.xs,
@@ -176,6 +221,18 @@ const styles = StyleSheet.create({
   positionText: {
     color: Colors.dark.primary,
     fontWeight: "600",
+  },
+  proBadge: {
+    backgroundColor: Colors.dark.accent + "20",
+  },
+  proText: {
+    color: Colors.dark.accent,
+  },
+  freeBadge: {
+    backgroundColor: Colors.dark.textSecondary + "20",
+  },
+  freeText: {
+    color: Colors.dark.textSecondary,
   },
   statsSection: {
     marginBottom: Spacing["2xl"],
@@ -189,6 +246,12 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: "row",
     gap: Spacing.md,
+  },
+  heatmapSection: {
+    marginBottom: Spacing["2xl"],
+  },
+  heatmapCard: {
+    paddingVertical: Spacing.md,
   },
   settingsSection: {
     marginBottom: Spacing["2xl"],

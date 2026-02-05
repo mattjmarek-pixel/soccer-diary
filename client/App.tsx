@@ -20,6 +20,7 @@ import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DiaryProvider } from "@/contexts/DiaryContext";
+import { PremiumProvider } from "@/contexts/PremiumContext";
 import { Colors } from "@/constants/theme";
 
 SplashScreen.preventAutoHideAsync();
@@ -45,6 +46,7 @@ export default function App() {
     <ErrorBoundary>
       <AuthProvider>
         <DiaryProvider>
+          <PremiumProvider>
           <QueryClientProvider client={queryClient}>
             <SafeAreaProvider>
               <GestureHandlerRootView style={styles.root}>
@@ -57,6 +59,7 @@ export default function App() {
               </GestureHandlerRootView>
             </SafeAreaProvider>
           </QueryClientProvider>
+          </PremiumProvider>
         </DiaryProvider>
       </AuthProvider>
     </ErrorBoundary>
