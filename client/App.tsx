@@ -21,6 +21,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DiaryProvider } from "@/contexts/DiaryContext";
 import { PremiumProvider } from "@/contexts/PremiumContext";
+import { AchievementProvider } from "@/contexts/AchievementContext";
 import { Colors } from "@/constants/theme";
 
 SplashScreen.preventAutoHideAsync();
@@ -47,6 +48,7 @@ export default function App() {
       <AuthProvider>
         <DiaryProvider>
           <PremiumProvider>
+          <AchievementProvider>
           <QueryClientProvider client={queryClient}>
             <SafeAreaProvider>
               <GestureHandlerRootView style={styles.root}>
@@ -59,6 +61,7 @@ export default function App() {
               </GestureHandlerRootView>
             </SafeAreaProvider>
           </QueryClientProvider>
+          </AchievementProvider>
           </PremiumProvider>
         </DiaryProvider>
       </AuthProvider>
