@@ -45,7 +45,7 @@ ${entrySummaries}
 Respond ONLY with valid JSON, no markdown or extra text.`,
           },
         ],
-        temperature: 0.7,
+        response_format: { type: "json_object" },
       });
 
       const content = response.choices[0]?.message?.content;

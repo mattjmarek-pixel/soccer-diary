@@ -134,9 +134,32 @@ export default function InsightsScreen() {
             Analyze your recent training sessions and get personalized
             insights to improve your game
           </ThemedText>
-          <Button onPress={fetchInsights} style={styles.generateButton}>
-            Generate Insights
-          </Button>
+          {entries.length < 3 ? (
+            <View style={styles.minEntriesContainer}>
+              <View style={styles.progressRow}>
+                <View style={styles.progressBarBg}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      { width: `${(entries.length / 3) * 100}%` },
+                    ]}
+                  />
+                </View>
+                <ThemedText type="small" style={styles.progressLabel}>
+                  {entries.length}/3
+                </ThemedText>
+              </View>
+              <ThemedText type="body" style={styles.minEntriesText}>
+                Log {3 - entries.length} more training{" "}
+                {3 - entries.length === 1 ? "session" : "sessions"} to unlock
+                AI insights
+              </ThemedText>
+            </View>
+          ) : (
+            <Button onPress={fetchInsights} style={styles.generateButton}>
+              Generate Insights
+            </Button>
+          )}
         </View>
       ) : null}
 
@@ -284,6 +307,38 @@ const styles = StyleSheet.create({
   },
   generateButton: {
     width: "100%",
+  },
+  minEntriesContainer: {
+    width: "100%",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  progressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    gap: Spacing.md,
+  },
+  progressBarBg: {
+    flex: 1,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 4,
+    backgroundColor: Colors.dark.primary,
+  },
+  progressLabel: {
+    color: Colors.dark.primary,
+    fontWeight: "700",
+  },
+  minEntriesText: {
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    lineHeight: 22,
   },
   loadingSection: {
     alignItems: "center",
