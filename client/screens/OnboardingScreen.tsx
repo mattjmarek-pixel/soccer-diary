@@ -85,7 +85,9 @@ export default function OnboardingScreen({ navigation }: Props) {
   const renderSlide = ({ item }: { item: OnboardingSlide }) => (
     <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
       <View style={styles.imageContainer}>
-        <Image source={item.image} style={styles.image} resizeMode="contain" />
+        <View style={styles.imageWrapper}>
+          <Image source={item.image} style={styles.image} resizeMode="cover" />
+        </View>
       </View>
       <View style={styles.textContainer}>
         <ThemedText type="display" style={styles.title}>
@@ -164,9 +166,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
   },
+  imageWrapper: {
+    width: SCREEN_WIDTH * 0.75,
+    height: SCREEN_WIDTH * 0.75,
+    borderRadius: BorderRadius.xl,
+    overflow: "hidden",
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
   image: {
-    width: SCREEN_WIDTH * 0.7,
-    height: SCREEN_WIDTH * 0.7,
+    width: "100%",
+    height: "100%",
   },
   textContainer: {
     alignItems: "center",
