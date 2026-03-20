@@ -420,12 +420,14 @@ export default function SocialScreen() {
   }
 
   // Show top 14 + always include user row even if outside top 15
+  // Each item carries its true global rank for accurate display
   const TOP_N = 15;
-  const globalDisplayList: LeaderboardPlayer[] = (() => {
-    const top = globalWithMe.slice(0, TOP_N);
-    const userInTop = top.some((p) => p.isMe);
+  const globalDisplayList: Array<{ player: LeaderboardPlayer; globalRank: number }> = (() => {
+    const ranked = globalWithMe.map((p, idx) => ({ player: p, globalRank: idx + 1 }));
+    const top = ranked.slice(0, TOP_N);
+    const userInTop = top.some((r) => r.player.isMe);
     if (!userInTop) {
-      const userEntry = globalWithMe.find((p) => p.isMe);
+      const userEntry = ranked.find((r) => r.player.isMe);
       if (userEntry) return [...top.slice(0, TOP_N - 1), userEntry];
     }
     return top;
@@ -534,35 +536,38 @@ export default function SocialScreen() {
         {/* Leaderboard List */}
         <View style={styles.leaderboard}>
           {activeTab === "global" ? (
-            globalDisplayList.map((player, idx) => (
+            globalDisplayList.map(({ player, globalRank }) => (
               <PlayerRow
                 key={player.id}
                 player={player}
-                rank={idx + 1}
+                rank={globalRank}
                 onPress={() => setSelectedPlayer(player)}
               />
             ))
-          ) : friends.length === 0 ? (
-            <Animated.View entering={FadeIn} style={styles.emptyFriends}>
-              <Feather name="users" size={40} color={Colors.dark.textSecondary} />
-              <ThemedText style={styles.emptyTitle}>No friends yet</ThemedText>
-              <ThemedText style={styles.emptySubtitle}>
-                Search for players and add them to see how you compare!
-              </ThemedText>
-              <Pressable style={styles.addFriendCta} onPress={() => setShowAddFriend(true)}>
-                <Feather name="user-plus" size={16} color={Colors.dark.buttonText} />
-                <ThemedText style={{ color: Colors.dark.buttonText, fontWeight: "700", marginLeft: 8 }}>Find Players</ThemedText>
-              </Pressable>
-            </Animated.View>
           ) : (
-            friendsWithMe.map((player, idx) => (
-              <PlayerRow
-                key={player.id}
-                player={player}
-                rank={idx + 1}
-                onPress={() => setSelectedPlayer(player)}
-              />
-            ))
+            <>
+              {friendsWithMe.map((player, idx) => (
+                <PlayerRow
+                  key={player.id}
+                  player={player}
+                  rank={idx + 1}
+                  onPress={() => setSelectedPlayer(player)}
+                />
+              ))}
+              {friends.length === 0 ? (
+                <Animated.View entering={FadeIn} style={styles.emptyFriends}>
+                  <Feather name="users" size={40} color={Colors.dark.textSecondary} />
+                  <ThemedText style={styles.emptyTitle}>Add friends to compete!</ThemedText>
+                  <ThemedText style={styles.emptySubtitle}>
+                    Search for players and add them to see how you stack up.
+                  </ThemedText>
+                  <Pressable style={styles.addFriendCta} onPress={() => setShowAddFriend(true)}>
+                    <Feather name="user-plus" size={16} color={Colors.dark.buttonText} />
+                    <ThemedText style={{ color: Colors.dark.buttonText, fontWeight: "700", marginLeft: 8 }}>Find Players</ThemedText>
+                  </Pressable>
+                </Animated.View>
+              ) : null}
+            </>
           )}
         </View>
       </ScrollView>
