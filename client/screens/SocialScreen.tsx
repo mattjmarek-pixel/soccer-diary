@@ -29,7 +29,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePremium } from "@/contexts/PremiumContext";
 import { ACHIEVEMENTS } from "@/constants/achievements";
 
-const FRIENDS_STORAGE_KEY = "@soccer_diary_friends";
+const FRIENDS_STORAGE_BASE_KEY = "@soccer_diary_friends";
 
 type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 
@@ -267,6 +267,10 @@ function AddFriendModal({ visible, friends, onClose, onAddFriend }: {
   onAddFriend: (f: Friend) => void;
 }) {
   const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    if (!visible) setQuery("");
+  }, [visible]);
   const friendIds = new Set(friends.map((f) => f.id));
   const results = SEARCH_POOL.filter(
     (p) =>
@@ -349,16 +353,30 @@ export default function SocialScreen() {
   const [selectedPlayer, setSelectedPlayer] = useState<LeaderboardPlayer | null>(null);
   const [showAddFriend, setShowAddFriend] = useState(false);
 
+  const friendsKey = user ? `${FRIENDS_STORAGE_BASE_KEY}_${user.id}` : null;
+
   useEffect(() => {
-    AsyncStorage.getItem(FRIENDS_STORAGE_KEY).then((data) => {
-      if (data) setFriends(JSON.parse(data) as Friend[]);
+    if (!friendsKey) return;
+    AsyncStorage.getItem(friendsKey).then((data) => {
+      if (!data) return;
+      try {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) setFriends(parsed as Friend[]);
+      } catch {
+        AsyncStorage.removeItem(friendsKey);
+      }
     });
-  }, []);
+  }, [friendsKey]);
 
   const saveFriends = useCallback(async (list: Friend[]) => {
-    await AsyncStorage.setItem(FRIENDS_STORAGE_KEY, JSON.stringify(list));
+    if (!friendsKey) return;
+    try {
+      await AsyncStorage.setItem(friendsKey, JSON.stringify(list));
+    } catch {
+      // Storage write failed silently
+    }
     setFriends(list);
-  }, []);
+  }, [friendsKey]);
 
   const handleAddFriend = useCallback(
     (friend: Friend) => {
