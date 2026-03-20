@@ -419,6 +419,18 @@ export default function SocialScreen() {
     globalWithMe.push(myPlayer);
   }
 
+  // Show top 14 + always include user row even if outside top 15
+  const TOP_N = 15;
+  const globalDisplayList: LeaderboardPlayer[] = (() => {
+    const top = globalWithMe.slice(0, TOP_N);
+    const userInTop = top.some((p) => p.isMe);
+    if (!userInTop) {
+      const userEntry = globalWithMe.find((p) => p.isMe);
+      if (userEntry) return [...top.slice(0, TOP_N - 1), userEntry];
+    }
+    return top;
+  })();
+
   const friendsAsLeaderboard: LeaderboardPlayer[] = friends.map((f) => ({
     ...f,
     level: getUserLevel(f.totalSessions),
@@ -522,7 +534,7 @@ export default function SocialScreen() {
         {/* Leaderboard List */}
         <View style={styles.leaderboard}>
           {activeTab === "global" ? (
-            globalWithMe.slice(0, 15).map((player, idx) => (
+            globalDisplayList.map((player, idx) => (
               <PlayerRow
                 key={player.id}
                 player={player}
