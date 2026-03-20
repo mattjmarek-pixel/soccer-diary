@@ -16,6 +16,7 @@ import Animated, {
 import TimelineStackNavigator from "@/navigation/TimelineStackNavigator";
 import StatsStackNavigator from "@/navigation/StatsStackNavigator";
 import AchievementsStackNavigator from "@/navigation/AchievementsStackNavigator";
+import SocialStackNavigator from "@/navigation/SocialStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -24,6 +25,7 @@ export type MainTabParamList = {
   TimelineTab: undefined;
   StatsTab: undefined;
   AchievementsTab: undefined;
+  SocialTab: undefined;
   ProfileTab: undefined;
 };
 
@@ -128,6 +130,16 @@ export default function MainTabNavigator() {
             title: "Badges",
             tabBarIcon: ({ color, size }) => (
               <Feather name="award" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="SocialTab"
+          component={SocialStackNavigator}
+          options={{
+            title: "Social",
+            tabBarIcon: ({ color, size }) => (
+              <Feather name="globe" size={size} color={color} />
             ),
           }}
         />
