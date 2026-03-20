@@ -124,22 +124,22 @@ export default function MainTabNavigator() {
           }}
         />
         <Tab.Screen
-          name="AchievementsTab"
-          component={AchievementsStackNavigator}
-          options={{
-            title: "Badges",
-            tabBarIcon: ({ color, size }) => (
-              <Feather name="award" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
           name="SocialTab"
           component={SocialStackNavigator}
           options={{
             title: "Social",
             tabBarIcon: ({ color, size }) => (
               <Feather name="globe" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="AchievementsTab"
+          component={AchievementsStackNavigator}
+          options={{
+            title: "Badges",
+            tabBarIcon: ({ color, size }) => (
+              <Feather name="award" size={size} color={color} />
             ),
           }}
         />

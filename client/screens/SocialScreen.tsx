@@ -12,7 +12,6 @@ import {
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
-import { useNavigation, NavigationProp } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -25,14 +24,16 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { useDiary } from "@/contexts/DiaryContext";
+import { useDiary, DiaryEntry } from "@/contexts/DiaryContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePremium } from "@/contexts/PremiumContext";
-import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { ACHIEVEMENTS } from "@/constants/achievements";
 
 const FRIENDS_STORAGE_KEY = "@soccer_diary_friends";
 
-interface SimulatedPlayer {
+type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
+
+interface LeaderboardPlayer {
   id: string;
   name: string;
   username: string;
@@ -41,11 +42,13 @@ interface SimulatedPlayer {
   totalMinutes: number;
   streak: number;
   totalSessions: number;
+  achievementCount: number;
   topSkill: string;
   level: number;
   isPro: boolean;
   avatarColor: string;
   initials: string;
+  isMe?: boolean;
 }
 
 interface Friend {
@@ -57,32 +60,33 @@ interface Friend {
   totalMinutes: number;
   streak: number;
   totalSessions: number;
+  achievementCount: number;
   topSkill: string;
   isPro: boolean;
   avatarColor: string;
   initials: string;
 }
 
-const GLOBAL_PLAYERS: SimulatedPlayer[] = [
-  { id: "p1", name: "Mateo Rodriguez", username: "mateo_cr7", position: "Forward", weeklyMinutes: 840, totalMinutes: 18400, streak: 45, totalSessions: 312, topSkill: "Shooting", level: 28, isPro: true, avatarColor: "#FF6B6B", initials: "MR" },
-  { id: "p2", name: "Jamie Chen", username: "jchen_gk", position: "Goalkeeper", weeklyMinutes: 780, totalMinutes: 16200, streak: 38, totalSessions: 287, topSkill: "Fitness", level: 25, isPro: true, avatarColor: "#4ECDC4", initials: "JC" },
-  { id: "p3", name: "Luca Bianchi", username: "luca_mid10", position: "Midfielder", weeklyMinutes: 720, totalMinutes: 14800, streak: 22, totalSessions: 264, topSkill: "Passing", level: 23, isPro: false, avatarColor: "#45B7D1", initials: "LB" },
-  { id: "p4", name: "Sofia Andersen", username: "sofia_a11", position: "Forward", weeklyMinutes: 660, totalMinutes: 13600, streak: 31, totalSessions: 241, topSkill: "Dribbling", level: 21, isPro: true, avatarColor: "#96CEB4", initials: "SA" },
-  { id: "p5", name: "Kai Nakamura", username: "kai_mid", position: "Midfielder", weeklyMinutes: 600, totalMinutes: 12200, streak: 17, totalSessions: 218, topSkill: "Tactics", level: 19, isPro: false, avatarColor: "#FFEAA7", initials: "KN" },
-  { id: "p6", name: "Aiden Okafor", username: "aiden_def", position: "Defender", weeklyMinutes: 540, totalMinutes: 11000, streak: 14, totalSessions: 196, topSkill: "Fitness", level: 17, isPro: true, avatarColor: "#DDA0DD", initials: "AO" },
-  { id: "p7", name: "Emma Walsh", username: "emma_gk", position: "Goalkeeper", weeklyMinutes: 480, totalMinutes: 9800, streak: 9, totalSessions: 175, topSkill: "First Touch", level: 15, isPro: false, avatarColor: "#F0E68C", initials: "EW" },
-  { id: "p8", name: "Carlos Mendez", username: "c_mendez9", position: "Forward", weeklyMinutes: 420, totalMinutes: 8600, streak: 7, totalSessions: 154, topSkill: "Shooting", level: 13, isPro: false, avatarColor: "#98FB98", initials: "CM" },
-  { id: "p9", name: "Zara Ahmed", username: "zara_mid", position: "Midfielder", weeklyMinutes: 360, totalMinutes: 7200, streak: 5, totalSessions: 132, topSkill: "Passing", level: 11, isPro: true, avatarColor: "#FFB347", initials: "ZA" },
-  { id: "p10", name: "Tyler Brooks", username: "tbrooks_def", position: "Defender", weeklyMinutes: 300, totalMinutes: 6000, streak: 3, totalSessions: 110, topSkill: "Tactics", level: 9, isPro: false, avatarColor: "#87CEEB", initials: "TB" },
+const GLOBAL_PLAYERS: LeaderboardPlayer[] = [
+  { id: "p1", name: "Mateo Rodriguez", username: "mateo_cr7", position: "Forward", weeklyMinutes: 840, totalMinutes: 18400, streak: 45, totalSessions: 312, achievementCount: 9, topSkill: "Shooting", level: 28, isPro: true, avatarColor: "#FF6B6B", initials: "MR" },
+  { id: "p2", name: "Jamie Chen", username: "jchen_gk", position: "Goalkeeper", weeklyMinutes: 780, totalMinutes: 16200, streak: 38, totalSessions: 287, achievementCount: 8, topSkill: "Fitness", level: 25, isPro: true, avatarColor: "#4ECDC4", initials: "JC" },
+  { id: "p3", name: "Luca Bianchi", username: "luca_mid10", position: "Midfielder", weeklyMinutes: 720, totalMinutes: 14800, streak: 22, totalSessions: 264, achievementCount: 7, topSkill: "Passing", level: 23, isPro: false, avatarColor: "#45B7D1", initials: "LB" },
+  { id: "p4", name: "Sofia Andersen", username: "sofia_a11", position: "Forward", weeklyMinutes: 660, totalMinutes: 13600, streak: 31, totalSessions: 241, achievementCount: 7, topSkill: "Dribbling", level: 21, isPro: true, avatarColor: "#96CEB4", initials: "SA" },
+  { id: "p5", name: "Kai Nakamura", username: "kai_mid", position: "Midfielder", weeklyMinutes: 600, totalMinutes: 12200, streak: 17, totalSessions: 218, achievementCount: 6, topSkill: "Tactics", level: 19, isPro: false, avatarColor: "#FFEAA7", initials: "KN" },
+  { id: "p6", name: "Aiden Okafor", username: "aiden_def", position: "Defender", weeklyMinutes: 540, totalMinutes: 11000, streak: 14, totalSessions: 196, achievementCount: 5, topSkill: "Fitness", level: 17, isPro: true, avatarColor: "#DDA0DD", initials: "AO" },
+  { id: "p7", name: "Emma Walsh", username: "emma_gk", position: "Goalkeeper", weeklyMinutes: 480, totalMinutes: 9800, streak: 9, totalSessions: 175, achievementCount: 5, topSkill: "First Touch", level: 15, isPro: false, avatarColor: "#F0E68C", initials: "EW" },
+  { id: "p8", name: "Carlos Mendez", username: "c_mendez9", position: "Forward", weeklyMinutes: 420, totalMinutes: 8600, streak: 7, totalSessions: 154, achievementCount: 4, topSkill: "Shooting", level: 13, isPro: false, avatarColor: "#98FB98", initials: "CM" },
+  { id: "p9", name: "Zara Ahmed", username: "zara_mid", position: "Midfielder", weeklyMinutes: 360, totalMinutes: 7200, streak: 5, totalSessions: 132, achievementCount: 3, topSkill: "Passing", level: 11, isPro: true, avatarColor: "#FFB347", initials: "ZA" },
+  { id: "p10", name: "Tyler Brooks", username: "tbrooks_def", position: "Defender", weeklyMinutes: 300, totalMinutes: 6000, streak: 3, totalSessions: 110, achievementCount: 2, topSkill: "Tactics", level: 9, isPro: false, avatarColor: "#87CEEB", initials: "TB" },
 ];
 
 const SEARCH_POOL: Friend[] = [
-  { id: "s1", name: "Alex Torres", username: "alex_t22", position: "Midfielder", weeklyMinutes: 420, totalMinutes: 7800, streak: 8, totalSessions: 143, topSkill: "Dribbling", isPro: false, avatarColor: "#FF8C69", initials: "AT" },
-  { id: "s2", name: "Riley Park", username: "riley_fwd", position: "Forward", weeklyMinutes: 360, totalMinutes: 6500, streak: 5, totalSessions: 118, topSkill: "Shooting", isPro: true, avatarColor: "#7B68EE", initials: "RP" },
-  { id: "s3", name: "Sam Dubois", username: "sam_d7", position: "Midfielder", weeklyMinutes: 480, totalMinutes: 8900, streak: 12, totalSessions: 161, topSkill: "Passing", isPro: false, avatarColor: "#20B2AA", initials: "SD" },
-  { id: "s4", name: "Jordan Lee", username: "jordan_gk1", position: "Goalkeeper", weeklyMinutes: 300, totalMinutes: 5400, streak: 4, totalSessions: 97, topSkill: "First Touch", isPro: false, avatarColor: "#DA70D6", initials: "JL" },
-  { id: "s5", name: "Marcus Webb", username: "m_webb", position: "Defender", weeklyMinutes: 540, totalMinutes: 9600, streak: 16, totalSessions: 177, topSkill: "Fitness", isPro: true, avatarColor: "#3CB371", initials: "MW" },
-  { id: "s6", name: "Priya Sharma", username: "priya_s", position: "Forward", weeklyMinutes: 390, totalMinutes: 7100, streak: 6, totalSessions: 129, topSkill: "Dribbling", isPro: false, avatarColor: "#CD853F", initials: "PS" },
+  { id: "s1", name: "Alex Torres", username: "alex_t22", position: "Midfielder", weeklyMinutes: 420, totalMinutes: 7800, streak: 8, totalSessions: 143, achievementCount: 4, topSkill: "Dribbling", isPro: false, avatarColor: "#FF8C69", initials: "AT" },
+  { id: "s2", name: "Riley Park", username: "riley_fwd", position: "Forward", weeklyMinutes: 360, totalMinutes: 6500, streak: 5, totalSessions: 118, achievementCount: 3, topSkill: "Shooting", isPro: true, avatarColor: "#7B68EE", initials: "RP" },
+  { id: "s3", name: "Sam Dubois", username: "sam_d7", position: "Midfielder", weeklyMinutes: 480, totalMinutes: 8900, streak: 12, totalSessions: 161, achievementCount: 5, topSkill: "Passing", isPro: false, avatarColor: "#20B2AA", initials: "SD" },
+  { id: "s4", name: "Jordan Lee", username: "jordan_gk1", position: "Goalkeeper", weeklyMinutes: 300, totalMinutes: 5400, streak: 4, totalSessions: 97, achievementCount: 2, topSkill: "First Touch", isPro: false, avatarColor: "#DA70D6", initials: "JL" },
+  { id: "s5", name: "Marcus Webb", username: "m_webb", position: "Defender", weeklyMinutes: 540, totalMinutes: 9600, streak: 16, totalSessions: 177, achievementCount: 6, topSkill: "Fitness", isPro: true, avatarColor: "#3CB371", initials: "MW" },
+  { id: "s6", name: "Priya Sharma", username: "priya_s", position: "Forward", weeklyMinutes: 390, totalMinutes: 7100, streak: 6, totalSessions: 129, achievementCount: 3, topSkill: "Dribbling", isPro: false, avatarColor: "#CD853F", initials: "PS" },
 ];
 
 const WEEKLY_CHALLENGE = {
@@ -92,10 +96,10 @@ const WEEKLY_CHALLENGE = {
   participants: 2847,
   daysLeft: 4,
   reward: "Blitz Badge",
-  icon: "zap",
+  icon: "zap" as FeatherIconName,
 };
 
-function getWeekSessionCount(entries: any[]): number {
+function getWeekSessionCount(entries: DiaryEntry[]): number {
   const now = new Date();
   const weekStart = new Date(now);
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
@@ -103,7 +107,7 @@ function getWeekSessionCount(entries: any[]): number {
   return entries.filter((e) => new Date(e.date) >= weekStart).length;
 }
 
-function getWeeklyMinutes(entries: any[]): number {
+function getWeeklyMinutes(entries: DiaryEntry[]): number {
   const now = new Date();
   const weekStart = new Date(now);
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
@@ -117,11 +121,11 @@ function getUserLevel(totalSessions: number): number {
   return Math.max(1, Math.floor(totalSessions / 10) + 1);
 }
 
-function getTopSkill(entries: any[]): string {
+function getTopSkill(entries: DiaryEntry[]): string {
   if (entries.length === 0) return "Dribbling";
   const counts: Record<string, number> = {};
   entries.forEach((e) => {
-    e.skills?.forEach((s: any) => {
+    e.skills.forEach((s) => {
       counts[s.category] = (counts[s.category] || 0) + 1;
     });
   });
@@ -153,10 +157,11 @@ function AvatarBubble({ initials, color, size = 40, isPro }: { initials: string;
 function RankBadge({ rank }: { rank: number }) {
   const color = rank === 1 ? "#FFD700" : rank === 2 ? "#C0C0C0" : rank === 3 ? "#CD7F32" : Colors.dark.textSecondary;
   const bg = rank <= 3 ? color + "22" : "transparent";
+  const borderColor = rank <= 3 ? color : "transparent";
   return (
-    <View style={[styles.rankBadge, { backgroundColor: bg, borderColor: rank <= 3 ? color : "transparent" }]}>
+    <View style={[styles.rankBadge, { backgroundColor: bg, borderColor }]}>
       <ThemedText style={{ fontSize: 12, fontWeight: "700", color, minWidth: 20, textAlign: "center" }}>
-        {rank <= 3 ? (rank === 1 ? "1st" : rank === 2 ? "2nd" : "3rd") : `#${rank}`}
+        {rank === 1 ? "1st" : rank === 2 ? "2nd" : rank === 3 ? "3rd" : `#${rank}`}
       </ThemedText>
     </View>
   );
@@ -165,12 +170,10 @@ function RankBadge({ rank }: { rank: number }) {
 function PlayerRow({
   player,
   rank,
-  isMe,
   onPress,
 }: {
-  player: any;
+  player: LeaderboardPlayer;
   rank: number;
-  isMe?: boolean;
   onPress: () => void;
 }) {
   const scale = useSharedValue(1);
@@ -183,23 +186,29 @@ function PlayerRow({
           scale.value = withSpring(0.97, { damping: 15 }, () => { scale.value = withSpring(1); });
           onPress();
         }}
-        style={[styles.playerRow, isMe && styles.playerRowMe]}
+        style={[styles.playerRow, player.isMe && styles.playerRowMe]}
       >
         <RankBadge rank={rank} />
         <View style={{ marginLeft: Spacing.md }}>
-          <AvatarBubble initials={player.initials || getInitials(player.name)} color={player.avatarColor || Colors.dark.primary} size={44} isPro={player.isPro} />
+          <AvatarBubble initials={player.initials} color={player.avatarColor} size={44} isPro={player.isPro} />
         </View>
         <View style={styles.playerInfo}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <ThemedText style={[styles.playerName, isMe && { color: Colors.dark.primary }]} numberOfLines={1}>
+            <ThemedText style={[styles.playerName, player.isMe && { color: Colors.dark.primary }]} numberOfLines={1}>
               {player.name}
             </ThemedText>
-            {isMe ? <View style={styles.meTag}><ThemedText style={{ fontSize: 9, color: Colors.dark.buttonText, fontWeight: "800" }}>YOU</ThemedText></View> : null}
+            {player.isMe ? (
+              <View style={styles.meTag}>
+                <ThemedText style={{ fontSize: 9, color: Colors.dark.buttonText, fontWeight: "800" }}>YOU</ThemedText>
+              </View>
+            ) : null}
           </View>
           <ThemedText style={styles.playerMeta}>{player.position} · {player.topSkill}</ThemedText>
         </View>
         <View style={styles.playerStats}>
-          <ThemedText style={styles.statValue}>{player.weeklyMinutes}<ThemedText style={styles.statUnit}>m</ThemedText></ThemedText>
+          <ThemedText style={styles.statValue}>
+            {player.weeklyMinutes}<ThemedText style={styles.statUnit}>m</ThemedText>
+          </ThemedText>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
             <Feather name="zap" size={10} color={Colors.dark.accent} />
             <ThemedText style={styles.statStreak}>{player.streak}d</ThemedText>
@@ -210,15 +219,23 @@ function PlayerRow({
   );
 }
 
-function PlayerProfileModal({ player, onClose }: { player: any | null; onClose: () => void }) {
+function PlayerProfileModal({ player, onClose }: { player: LeaderboardPlayer | null; onClose: () => void }) {
   if (!player) return null;
+  const statItems: { label: string; value: string | number; icon: FeatherIconName }[] = [
+    { label: "Sessions", value: player.totalSessions, icon: "edit-3" },
+    { label: "Total Mins", value: player.totalMinutes, icon: "clock" },
+    { label: "Streak", value: `${player.streak}d`, icon: "zap" },
+    { label: "Top Skill", value: player.topSkill, icon: "target" },
+    { label: "Badges", value: player.achievementCount, icon: "award" },
+    { label: "Level", value: player.level, icon: "trending-up" },
+  ];
   return (
-    <Modal visible={!!player} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
       <Pressable style={styles.modalOverlay} onPress={onClose}>
         <Pressable style={styles.profileSheet} onPress={(e) => e.stopPropagation()}>
           <View style={styles.sheetHandle} />
           <View style={{ alignItems: "center", marginBottom: Spacing["2xl"] }}>
-            <AvatarBubble initials={player.initials || getInitials(player.name)} color={player.avatarColor || Colors.dark.primary} size={72} isPro={player.isPro} />
+            <AvatarBubble initials={player.initials} color={player.avatarColor} size={72} isPro={player.isPro} />
             <ThemedText style={styles.profileName}>{player.name}</ThemedText>
             <ThemedText style={styles.profileUsername}>@{player.username}</ThemedText>
             <View style={styles.positionTag}>
@@ -226,25 +243,14 @@ function PlayerProfileModal({ player, onClose }: { player: any | null; onClose: 
             </View>
           </View>
           <View style={styles.statsGrid}>
-            {[
-              { label: "Sessions", value: player.totalSessions, icon: "edit-3" },
-              { label: "Total Mins", value: player.totalMinutes, icon: "clock" },
-              { label: "Streak", value: `${player.streak}d`, icon: "zap" },
-              { label: "Top Skill", value: player.topSkill, icon: "target" },
-            ].map((stat) => (
+            {statItems.map((stat) => (
               <View key={stat.label} style={styles.statCard}>
-                <Feather name={stat.icon as any} size={16} color={Colors.dark.primary} />
+                <Feather name={stat.icon} size={16} color={Colors.dark.primary} />
                 <ThemedText style={styles.statCardValue}>{stat.value}</ThemedText>
                 <ThemedText style={styles.statCardLabel}>{stat.label}</ThemedText>
               </View>
             ))}
           </View>
-          {player.level !== undefined ? (
-            <View style={styles.levelRow}>
-              <Feather name="trending-up" size={14} color={Colors.dark.accent} />
-              <ThemedText style={{ color: Colors.dark.accent, fontWeight: "700", marginLeft: 6 }}>Level {player.level}</ThemedText>
-            </View>
-          ) : null}
           <Pressable style={styles.closeBtn} onPress={onClose}>
             <ThemedText style={{ color: Colors.dark.buttonText, fontWeight: "700", fontSize: 15 }}>Close</ThemedText>
           </Pressable>
@@ -262,14 +268,13 @@ function AddFriendModal({ visible, friends, onClose, onAddFriend }: {
 }) {
   const [query, setQuery] = useState("");
   const friendIds = new Set(friends.map((f) => f.id));
-  const results = query.length > 0
-    ? SEARCH_POOL.filter(
-        (p) =>
-          !friendIds.has(p.id) &&
-          (p.name.toLowerCase().includes(query.toLowerCase()) ||
-            p.username.toLowerCase().includes(query.toLowerCase()))
-      )
-    : SEARCH_POOL.filter((p) => !friendIds.has(p.id));
+  const results = SEARCH_POOL.filter(
+    (p) =>
+      !friendIds.has(p.id) &&
+      (query.length === 0 ||
+        p.name.toLowerCase().includes(query.toLowerCase()) ||
+        p.username.toLowerCase().includes(query.toLowerCase()))
+  );
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -341,12 +346,12 @@ export default function SocialScreen() {
 
   const [activeTab, setActiveTab] = useState<"global" | "friends">("global");
   const [friends, setFriends] = useState<Friend[]>([]);
-  const [selectedPlayer, setSelectedPlayer] = useState<any | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<LeaderboardPlayer | null>(null);
   const [showAddFriend, setShowAddFriend] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(FRIENDS_STORAGE_KEY).then((data) => {
-      if (data) setFriends(JSON.parse(data));
+      if (data) setFriends(JSON.parse(data) as Friend[]);
     });
   }, []);
 
@@ -357,16 +362,7 @@ export default function SocialScreen() {
 
   const handleAddFriend = useCallback(
     (friend: Friend) => {
-      const updated = [...friends, friend];
-      saveFriends(updated);
-    },
-    [friends, saveFriends]
-  );
-
-  const handleRemoveFriend = useCallback(
-    (id: string) => {
-      const updated = friends.filter((f) => f.id !== id);
-      saveFriends(updated);
+      saveFriends([...friends, friend]);
     },
     [friends, saveFriends]
   );
@@ -376,33 +372,42 @@ export default function SocialScreen() {
   const challengeProgress = Math.min(weekSessions / WEEKLY_CHALLENGE.target, 1);
   const topSkill = getTopSkill(entries);
   const userLevel = getUserLevel(stats.totalEntries);
+  const userAchievementCount = ACHIEVEMENTS.filter((a) => a.isEarned(entries, stats)).length;
 
-  const myPlayer = {
+  const myPlayer: LeaderboardPlayer = {
     id: "me",
-    name: user?.name || "You",
-    username: user?.email?.split("@")[0] || "you",
-    position: user?.position || "Midfielder",
+    name: user?.name ?? "You",
+    username: user?.email?.split("@")[0] ?? "you",
+    position: user?.position ?? "Midfielder",
     weeklyMinutes: weeklyMins,
     totalMinutes: stats.totalMinutes,
     streak: stats.currentStreak,
     totalSessions: stats.totalEntries,
+    achievementCount: userAchievementCount,
     topSkill,
     level: userLevel,
     isPro: isPremium,
     avatarColor: Colors.dark.primary,
-    initials: getInitials(user?.name || "Me"),
+    initials: getInitials(user?.name ?? "Me"),
+    isMe: true,
   };
 
   const globalWithMe = [...GLOBAL_PLAYERS];
   const insertRank = globalWithMe.findIndex((p) => p.weeklyMinutes < weeklyMins);
   const myRankGlobal = insertRank === -1 ? globalWithMe.length + 1 : insertRank + 1;
   if (insertRank !== -1) {
-    globalWithMe.splice(insertRank, 0, myPlayer as any);
+    globalWithMe.splice(insertRank, 0, myPlayer);
   } else {
-    globalWithMe.push(myPlayer as any);
+    globalWithMe.push(myPlayer);
   }
 
-  const friendsWithMe = [myPlayer as any, ...friends.map((f) => ({ ...f, level: getUserLevel(f.totalSessions) }))]
+  const friendsAsLeaderboard: LeaderboardPlayer[] = friends.map((f) => ({
+    ...f,
+    level: getUserLevel(f.totalSessions),
+    isMe: false,
+  }));
+
+  const friendsWithMe = [myPlayer, ...friendsAsLeaderboard]
     .sort((a, b) => b.weeklyMinutes - a.weeklyMinutes);
 
   return (
@@ -415,7 +420,7 @@ export default function SocialScreen() {
         <Animated.View entering={FadeIn.delay(50)} style={styles.challengeCard}>
           <View style={styles.challengeHeader}>
             <View style={styles.challengeIconWrap}>
-              <Feather name={WEEKLY_CHALLENGE.icon as any} size={20} color={Colors.dark.accent} />
+              <Feather name={WEEKLY_CHALLENGE.icon} size={20} color={Colors.dark.accent} />
             </View>
             <View style={{ flex: 1, marginLeft: Spacing.md }}>
               <ThemedText style={styles.challengeTitle}>{WEEKLY_CHALLENGE.title}</ThemedText>
@@ -427,7 +432,7 @@ export default function SocialScreen() {
             </View>
           </View>
           <View style={styles.progressBarTrack}>
-            <Animated.View style={[styles.progressBarFill, { width: `${challengeProgress * 100}%` as any }]} />
+            <View style={[styles.progressBarFill, { width: `${challengeProgress * 100}%` }]} />
           </View>
           <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: Spacing.sm }}>
             <ThemedText style={styles.progressLabel}>
@@ -441,7 +446,9 @@ export default function SocialScreen() {
           {challengeProgress >= 1 ? (
             <View style={styles.challengeComplete}>
               <Feather name="check-circle" size={14} color={Colors.dark.primary} />
-              <ThemedText style={{ color: Colors.dark.primary, fontWeight: "700", fontSize: 12, marginLeft: 6 }}>Challenge Complete! {WEEKLY_CHALLENGE.reward} earned</ThemedText>
+              <ThemedText style={{ color: Colors.dark.primary, fontWeight: "700", fontSize: 12, marginLeft: 6 }}>
+                Challenge Complete! {WEEKLY_CHALLENGE.reward} earned
+              </ThemedText>
             </View>
           ) : null}
         </Animated.View>
@@ -461,20 +468,17 @@ export default function SocialScreen() {
           >
             <Feather name="users" size={14} color={activeTab === "friends" ? Colors.dark.primary : Colors.dark.textSecondary} />
             <ThemedText style={[styles.tabLabel, activeTab === "friends" && styles.tabLabelActive]}>
-              Friends {friends.length > 0 ? `(${friends.length})` : ""}
+              {`Friends${friends.length > 0 ? ` (${friends.length})` : ""}`}
             </ThemedText>
           </Pressable>
           {activeTab === "friends" ? (
-            <Pressable
-              style={styles.addFriendBtn}
-              onPress={() => setShowAddFriend(true)}
-            >
+            <Pressable style={styles.addFriendBtn} onPress={() => setShowAddFriend(true)}>
               <Feather name="user-plus" size={14} color={Colors.dark.primary} />
             </Pressable>
           ) : null}
         </Animated.View>
 
-        {/* My Rank Summary */}
+        {/* My Rank Summary (Global only) */}
         {activeTab === "global" ? (
           <Animated.View entering={FadeIn.delay(150)} style={styles.myRankCard}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.md }}>
@@ -482,7 +486,10 @@ export default function SocialScreen() {
               <View>
                 <ThemedText style={{ color: Colors.dark.textSecondary, fontSize: 12 }}>Your Global Rank</ThemedText>
                 <ThemedText style={{ color: Colors.dark.text, fontWeight: "800", fontSize: 18 }}>
-                  #{myRankGlobal} <ThemedText style={{ fontSize: 13, fontWeight: "400", color: Colors.dark.textSecondary }}>of {globalWithMe.length.toLocaleString()}+</ThemedText>
+                  #{myRankGlobal}{" "}
+                  <ThemedText style={{ fontSize: 13, fontWeight: "400", color: Colors.dark.textSecondary }}>
+                    of {globalWithMe.length.toLocaleString()}+
+                  </ThemedText>
                 </ThemedText>
               </View>
               <View style={{ flex: 1 }} />
@@ -494,7 +501,7 @@ export default function SocialScreen() {
           </Animated.View>
         ) : null}
 
-        {/* Leaderboard */}
+        {/* Leaderboard List */}
         <View style={styles.leaderboard}>
           {activeTab === "global" ? (
             globalWithMe.slice(0, 15).map((player, idx) => (
@@ -502,7 +509,6 @@ export default function SocialScreen() {
                 key={player.id}
                 player={player}
                 rank={idx + 1}
-                isMe={player.id === "me"}
                 onPress={() => setSelectedPlayer(player)}
               />
             ))
@@ -510,7 +516,9 @@ export default function SocialScreen() {
             <Animated.View entering={FadeIn} style={styles.emptyFriends}>
               <Feather name="users" size={40} color={Colors.dark.textSecondary} />
               <ThemedText style={styles.emptyTitle}>No friends yet</ThemedText>
-              <ThemedText style={styles.emptySubtitle}>Search for players and add them to see how you compare!</ThemedText>
+              <ThemedText style={styles.emptySubtitle}>
+                Search for players and add them to see how you compare!
+              </ThemedText>
               <Pressable style={styles.addFriendCta} onPress={() => setShowAddFriend(true)}>
                 <Feather name="user-plus" size={16} color={Colors.dark.buttonText} />
                 <ThemedText style={{ color: Colors.dark.buttonText, fontWeight: "700", marginLeft: 8 }}>Find Players</ThemedText>
@@ -522,7 +530,6 @@ export default function SocialScreen() {
                 key={player.id}
                 player={player}
                 rank={idx + 1}
-                isMe={player.id === "me"}
                 onPress={() => setSelectedPlayer(player)}
               />
             ))
@@ -530,7 +537,9 @@ export default function SocialScreen() {
         </View>
       </ScrollView>
 
-      <PlayerProfileModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />
+      {selectedPlayer !== null ? (
+        <PlayerProfileModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />
+      ) : null}
       <AddFriendModal
         visible={showAddFriend}
         friends={friends}
@@ -801,8 +810,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   statCard: {
-    flex: 1,
-    minWidth: "45%",
+    width: "47%",
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.sm,
     padding: Spacing.md,
@@ -817,15 +825,6 @@ const styles = StyleSheet.create({
   statCardLabel: {
     fontSize: 11,
     color: Colors.dark.textSecondary,
-  },
-  levelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: Spacing.lg,
-    backgroundColor: Colors.dark.accent + "15",
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.sm,
   },
   closeBtn: {
     backgroundColor: Colors.dark.primary,
