@@ -401,11 +401,11 @@ function getContactInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-type ContactsPermStatus = "unknown" | "loading" | "granted" | "denied" | "web";
+type ContactsPermStatus = "unknown" | "loading" | "granted" | "denied" | "denied-final" | "web";
 
 function InviteTab() {
   const [permStatus, setPermStatus] = useState<ContactsPermStatus>(
-    Platform.OS === "web" ? "web" : "unknown"
+    Platform.OS === "web" ? "web" : "loading"
   );
   const [contacts, setContacts] = useState<ContactEntry[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
@@ -436,16 +436,30 @@ function InviteTab() {
     }
   }, []);
 
+  // On mount: check existing permission status to avoid prompting unnecessarily
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    Contacts.getPermissionsAsync().then(({ status, canAskAgain }) => {
+      if (status === "granted") {
+        setPermStatus("granted");
+        loadContacts();
+      } else if (status === "denied") {
+        setPermStatus(canAskAgain ? "denied" : "denied-final");
+      } else {
+        setPermStatus("unknown");
+      }
+    });
+  }, [loadContacts]);
+
   const requestPermission = useCallback(async () => {
     setPermStatus("loading");
     const { status, canAskAgain } = await Contacts.requestPermissionsAsync();
     if (status === "granted") {
       setPermStatus("granted");
       loadContacts();
-    } else if (!canAskAgain) {
-      setPermStatus("denied");
     } else {
-      setPermStatus("unknown");
+      // Any denial — show appropriate denied state
+      setPermStatus(canAskAgain ? "denied" : "denied-final");
     }
   }, [loadContacts]);
 
@@ -537,6 +551,35 @@ function InviteTab() {
           <ThemedText style={[styles.permDesc, { marginTop: Spacing.md }]}>Loading contacts...</ThemedText>
         </View>
       ) : permStatus === "denied" ? (
+        <View style={styles.permissionBox}>
+          <Feather name="lock" size={32} color={Colors.dark.textSecondary} />
+          <ThemedText style={styles.permTitle}>Contacts Access Needed</ThemedText>
+          <ThemedText style={styles.permDesc}>
+            Please allow contacts access so you can invite your friends.
+          </ThemedText>
+          <Pressable style={styles.permBtn} onPress={requestPermission}>
+            <ThemedText style={{ color: Colors.dark.buttonText, fontWeight: "700", fontSize: 14 }}>
+              Try Again
+            </ThemedText>
+          </Pressable>
+          {Platform.OS !== "web" ? (
+            <Pressable
+              style={[styles.permBtn, { backgroundColor: Colors.dark.backgroundSecondary, marginTop: 0 }]}
+              onPress={async () => {
+                try {
+                  await Linking.openSettings();
+                } catch {
+                  // openSettings not supported
+                }
+              }}
+            >
+              <ThemedText style={{ color: Colors.dark.text, fontWeight: "600", fontSize: 14 }}>
+                Open Settings
+              </ThemedText>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : permStatus === "denied-final" ? (
         <View style={styles.permissionBox}>
           <Feather name="lock" size={32} color={Colors.dark.textSecondary} />
           <ThemedText style={styles.permTitle}>Contacts Access Denied</ThemedText>
