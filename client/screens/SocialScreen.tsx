@@ -8,12 +8,18 @@ import {
   FlatList,
   TextInput,
   Platform,
+  Share,
+  Linking,
+  ActivityIndicator,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
+import * as Contacts from "expo-contacts";
+import * as SMS from "expo-sms";
+import * as MailComposer from "expo-mail-composer";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -378,6 +384,251 @@ function PlayerProfileModal({
   );
 }
 
+const INVITE_MESSAGE =
+  "Hey! I've been tracking my soccer training on Soccer Diary. It's a great way to level up your game. Join me! https://soccerdiary.app";
+
+type ContactEntry = {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  initials: string;
+};
+
+function getContactInitials(name: string): string {
+  const parts = name.trim().split(" ");
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+type ContactsPermStatus = "unknown" | "loading" | "granted" | "denied" | "web";
+
+function InviteTab() {
+  const [permStatus, setPermStatus] = useState<ContactsPermStatus>(
+    Platform.OS === "web" ? "web" : "unknown"
+  );
+  const [contacts, setContacts] = useState<ContactEntry[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const loadContacts = useCallback(async () => {
+    setContactsLoading(true);
+    try {
+      const { data } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails],
+        sort: Contacts.SortTypes.FirstName,
+      });
+      const mapped: ContactEntry[] = data
+        .filter((c) => c.name)
+        .map((c) => ({
+          id: c.id ?? c.name ?? Math.random().toString(),
+          name: c.name ?? "",
+          phone: c.phoneNumbers?.[0]?.number,
+          email: c.emails?.[0]?.email,
+          initials: getContactInitials(c.name ?? ""),
+        }))
+        .filter((c) => c.phone !== undefined || c.email !== undefined);
+      setContacts(mapped);
+    } catch {
+      // Failed to load contacts silently
+    } finally {
+      setContactsLoading(false);
+    }
+  }, []);
+
+  const requestPermission = useCallback(async () => {
+    setPermStatus("loading");
+    const { status, canAskAgain } = await Contacts.requestPermissionsAsync();
+    if (status === "granted") {
+      setPermStatus("granted");
+      loadContacts();
+    } else if (!canAskAgain) {
+      setPermStatus("denied");
+    } else {
+      setPermStatus("unknown");
+    }
+  }, [loadContacts]);
+
+  const handleShareInvite = useCallback(async () => {
+    try {
+      await Share.share({ message: INVITE_MESSAGE });
+    } catch {
+      // User cancelled or error
+    }
+  }, []);
+
+  const handleInviteContact = useCallback(async (contact: ContactEntry) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (contact.phone) {
+      const isAvailable = await SMS.isAvailableAsync();
+      if (isAvailable) {
+        await SMS.sendSMSAsync([contact.phone], INVITE_MESSAGE);
+        return;
+      }
+    }
+    if (contact.email) {
+      const isAvailable = await MailComposer.isAvailableAsync();
+      if (isAvailable) {
+        await MailComposer.composeAsync({
+          recipients: [contact.email],
+          subject: "Join me on Soccer Diary!",
+          body: INVITE_MESSAGE,
+        });
+        return;
+      }
+    }
+  }, []);
+
+  const filteredContacts = contacts.filter(
+    (c) =>
+      query.length === 0 || c.name.toLowerCase().includes(query.toLowerCase())
+  );
+
+  if (Platform.OS === "web") {
+    return (
+      <View style={styles.inviteWebMsg}>
+        <Feather name="smartphone" size={36} color={Colors.dark.textSecondary} />
+        <ThemedText style={styles.emptyTitle}>Use the mobile app</ThemedText>
+        <ThemedText style={styles.emptySubtitle}>
+          Contacts and SMS invites require the Soccer Diary mobile app. Scan the QR code to get it on your phone.
+        </ThemedText>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* Share via any app */}
+      <Pressable style={styles.shareInviteBtn} onPress={handleShareInvite}>
+        <View style={styles.shareInviteIcon}>
+          <Feather name="share-2" size={18} color={Colors.dark.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <ThemedText style={styles.shareInviteTitle}>Share Invite Link</ThemedText>
+          <ThemedText style={styles.shareInviteDesc}>
+            Send via Facebook, WhatsApp, iMessage, or any app
+          </ThemedText>
+        </View>
+        <Feather name="chevron-right" size={16} color={Colors.dark.textSecondary} />
+      </Pressable>
+
+      {/* Contacts section */}
+      <View style={styles.contactsHeader}>
+        <Feather name="book" size={14} color={Colors.dark.textSecondary} />
+        <ThemedText style={styles.contactsHeaderLabel}>From Your Contacts</ThemedText>
+      </View>
+
+      {permStatus === "unknown" ? (
+        <View style={styles.permissionBox}>
+          <Feather name="users" size={32} color={Colors.dark.textSecondary} />
+          <ThemedText style={styles.permTitle}>Access Your Contacts</ThemedText>
+          <ThemedText style={styles.permDesc}>
+            See which friends you can invite. Soccer Diary never stores or uploads your contacts.
+          </ThemedText>
+          <Pressable style={styles.permBtn} onPress={requestPermission}>
+            <ThemedText style={{ color: Colors.dark.buttonText, fontWeight: "700", fontSize: 14 }}>
+              Allow Contacts Access
+            </ThemedText>
+          </Pressable>
+        </View>
+      ) : permStatus === "loading" ? (
+        <View style={styles.permissionBox}>
+          <ActivityIndicator color={Colors.dark.primary} />
+          <ThemedText style={[styles.permDesc, { marginTop: Spacing.md }]}>Loading contacts...</ThemedText>
+        </View>
+      ) : permStatus === "denied" ? (
+        <View style={styles.permissionBox}>
+          <Feather name="lock" size={32} color={Colors.dark.textSecondary} />
+          <ThemedText style={styles.permTitle}>Contacts Access Denied</ThemedText>
+          <ThemedText style={styles.permDesc}>
+            Enable contacts access in Settings to invite friends directly.
+          </ThemedText>
+          {Platform.OS !== "web" ? (
+            <Pressable
+              style={styles.permBtn}
+              onPress={async () => {
+                try {
+                  await Linking.openSettings();
+                } catch {
+                  // openSettings not supported
+                }
+              }}
+            >
+              <ThemedText style={{ color: Colors.dark.buttonText, fontWeight: "700", fontSize: 14 }}>
+                Open Settings
+              </ThemedText>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : (
+        <>
+          <View style={[styles.searchBar, { marginBottom: Spacing.sm }]}>
+            <Feather name="search" size={16} color={Colors.dark.textSecondary} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search contacts..."
+              placeholderTextColor={Colors.dark.textSecondary}
+              value={query}
+              onChangeText={setQuery}
+              autoCapitalize="words"
+              autoCorrect={false}
+            />
+            {query.length > 0 ? (
+              <Pressable onPress={() => setQuery("")}>
+                <Feather name="x" size={16} color={Colors.dark.textSecondary} />
+              </Pressable>
+            ) : null}
+          </View>
+          {contactsLoading ? (
+            <ActivityIndicator color={Colors.dark.primary} style={{ marginTop: Spacing.xl }} />
+          ) : (
+            <FlatList
+              data={filteredContacts}
+              keyExtractor={(item) => item.id}
+              style={{ maxHeight: 260 }}
+              renderItem={({ item }) => (
+                <View style={styles.searchResultRow}>
+                  <View style={[styles.contactAvatar, { backgroundColor: Colors.dark.backgroundSecondary }]}>
+                    <ThemedText style={{ fontSize: 14, fontWeight: "700", color: Colors.dark.textSecondary }}>
+                      {item.initials}
+                    </ThemedText>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: Spacing.md }}>
+                    <ThemedText style={{ fontWeight: "700", color: Colors.dark.text }}>{item.name}</ThemedText>
+                    <ThemedText style={{ fontSize: 11, color: Colors.dark.textSecondary }}>
+                      {item.phone ?? item.email ?? ""}
+                    </ThemedText>
+                  </View>
+                  <Pressable
+                    style={styles.inviteBtn}
+                    onPress={() => handleInviteContact(item)}
+                  >
+                    <Feather
+                      name={item.phone ? "message-circle" : "mail"}
+                      size={14}
+                      color={Colors.dark.buttonText}
+                    />
+                    <ThemedText style={{ fontSize: 11, color: Colors.dark.buttonText, fontWeight: "700", marginLeft: 4 }}>
+                      Invite
+                    </ThemedText>
+                  </Pressable>
+                </View>
+              )}
+              ListEmptyComponent={
+                <View style={{ alignItems: "center", paddingVertical: Spacing["2xl"] }}>
+                  <ThemedText style={{ color: Colors.dark.textSecondary }}>
+                    {contacts.length === 0 ? "No contacts with phone or email found" : "No contacts match your search"}
+                  </ThemedText>
+                </View>
+              }
+            />
+          )}
+        </>
+      )}
+    </View>
+  );
+}
+
 function AddFriendModal({
   visible,
   friends,
@@ -389,10 +640,14 @@ function AddFriendModal({
   onClose: () => void;
   onAddFriend: (f: Friend) => void;
 }) {
+  const [activeTab, setActiveTab] = useState<"players" | "invite">("players");
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    if (!visible) setQuery("");
+    if (!visible) {
+      setQuery("");
+      setActiveTab("players");
+    }
   }, [visible]);
 
   const friendIds = new Set(friends.map((f) => f.id));
@@ -407,59 +662,97 @@ function AddFriendModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
-        <View style={[styles.profileSheet, { maxHeight: "80%" }]}>
+        <View style={[styles.profileSheet, { maxHeight: "88%" }]}>
           <View style={styles.sheetHandle} />
-          <ThemedText style={[styles.profileName, { marginBottom: Spacing.lg }]}>Find Players</ThemedText>
-          <View style={styles.searchBar}>
-            <Feather name="search" size={16} color={Colors.dark.textSecondary} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search by name or username..."
-              placeholderTextColor={Colors.dark.textSecondary}
-              value={query}
-              onChangeText={setQuery}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {query.length > 0 ? (
-              <Pressable onPress={() => setQuery("")}>
-                <Feather name="x" size={16} color={Colors.dark.textSecondary} />
-              </Pressable>
-            ) : null}
+          <ThemedText style={[styles.profileName, { marginBottom: Spacing.md }]}>Add Friends</ThemedText>
+
+          {/* Tab switcher */}
+          <View style={[styles.tabRow, { marginHorizontal: 0, marginBottom: Spacing.md }]}>
+            <Pressable
+              style={[styles.tabBtn, activeTab === "players" && styles.tabBtnActive]}
+              onPress={() => setActiveTab("players")}
+            >
+              <Feather
+                name="search"
+                size={13}
+                color={activeTab === "players" ? Colors.dark.primary : Colors.dark.textSecondary}
+              />
+              <ThemedText style={[styles.tabLabel, activeTab === "players" && styles.tabLabelActive]}>
+                Find Players
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              style={[styles.tabBtn, activeTab === "invite" && styles.tabBtnActive]}
+              onPress={() => setActiveTab("invite")}
+            >
+              <Feather
+                name="user-plus"
+                size={13}
+                color={activeTab === "invite" ? Colors.dark.primary : Colors.dark.textSecondary}
+              />
+              <ThemedText style={[styles.tabLabel, activeTab === "invite" && styles.tabLabelActive]}>
+                Invite Friends
+              </ThemedText>
+            </Pressable>
           </View>
-          <FlatList
-            data={results}
-            keyExtractor={(item) => item.id}
-            style={{ marginTop: Spacing.md }}
-            renderItem={({ item }) => (
-              <View style={styles.searchResultRow}>
-                <AvatarBubble initials={item.initials} color={item.avatarColor} size={40} isPro={item.isPro} />
-                <View style={{ flex: 1, marginLeft: Spacing.md }}>
-                  <ThemedText style={{ fontWeight: "700", color: Colors.dark.text }}>{item.name}</ThemedText>
-                  <ThemedText style={{ fontSize: 12, color: Colors.dark.textSecondary }}>
-                    @{item.username} · {item.position} · {item.ageBracket}
-                  </ThemedText>
-                </View>
-                <Pressable
-                  style={styles.addBtn}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onAddFriend(item);
-                  }}
-                >
-                  <Feather name="user-plus" size={14} color={Colors.dark.buttonText} />
-                </Pressable>
+
+          {activeTab === "players" ? (
+            <>
+              <View style={styles.searchBar}>
+                <Feather name="search" size={16} color={Colors.dark.textSecondary} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search by name or username..."
+                  placeholderTextColor={Colors.dark.textSecondary}
+                  value={query}
+                  onChangeText={setQuery}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {query.length > 0 ? (
+                  <Pressable onPress={() => setQuery("")}>
+                    <Feather name="x" size={16} color={Colors.dark.textSecondary} />
+                  </Pressable>
+                ) : null}
               </View>
-            )}
-            ListEmptyComponent={
-              <View style={{ alignItems: "center", paddingVertical: Spacing["3xl"] }}>
-                <Feather name="users" size={32} color={Colors.dark.textSecondary} />
-                <ThemedText style={{ color: Colors.dark.textSecondary, marginTop: Spacing.md }}>
-                  No players found
-                </ThemedText>
-              </View>
-            }
-          />
+              <FlatList
+                data={results}
+                keyExtractor={(item) => item.id}
+                style={{ marginTop: Spacing.md, maxHeight: 320 }}
+                renderItem={({ item }) => (
+                  <View style={styles.searchResultRow}>
+                    <AvatarBubble initials={item.initials} color={item.avatarColor} size={40} isPro={item.isPro} />
+                    <View style={{ flex: 1, marginLeft: Spacing.md }}>
+                      <ThemedText style={{ fontWeight: "700", color: Colors.dark.text }}>{item.name}</ThemedText>
+                      <ThemedText style={{ fontSize: 12, color: Colors.dark.textSecondary }}>
+                        @{item.username} · {item.position} · {item.ageBracket}
+                      </ThemedText>
+                    </View>
+                    <Pressable
+                      style={styles.addBtn}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        onAddFriend(item);
+                      }}
+                    >
+                      <Feather name="user-plus" size={14} color={Colors.dark.buttonText} />
+                    </Pressable>
+                  </View>
+                )}
+                ListEmptyComponent={
+                  <View style={{ alignItems: "center", paddingVertical: Spacing["3xl"] }}>
+                    <Feather name="users" size={32} color={Colors.dark.textSecondary} />
+                    <ThemedText style={{ color: Colors.dark.textSecondary, marginTop: Spacing.md }}>
+                      No players found
+                    </ThemedText>
+                  </View>
+                }
+              />
+            </>
+          ) : (
+            <InviteTab />
+          )}
+
           <Pressable style={[styles.closeBtn, { marginTop: Spacing.md }]} onPress={onClose}>
             <ThemedText style={{ color: Colors.dark.buttonText, fontWeight: "700", fontSize: 15 }}>Done</ThemedText>
           </Pressable>
@@ -1303,6 +1596,97 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.xs,
     padding: Spacing.sm,
+  },
+  shareInviteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "33",
+  },
+  shareInviteIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.primary + "22",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shareInviteTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  shareInviteDesc: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    marginTop: 2,
+  },
+  contactsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  contactsHeaderLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  permissionBox: {
+    alignItems: "center",
+    paddingVertical: Spacing["2xl"],
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  permTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginTop: Spacing.sm,
+  },
+  permDesc: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    lineHeight: 19,
+  },
+  permBtn: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  contactAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inviteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.primary + "33",
+    borderRadius: BorderRadius.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "66",
+  },
+  inviteWebMsg: {
+    alignItems: "center",
+    paddingVertical: Spacing["2xl"],
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
   },
   countryRow: {
     flexDirection: "row",

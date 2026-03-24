@@ -38,7 +38,13 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Soccer Diary needs access to your contacts so you can invite friends to train with you."
+        }
+      ]
     ],
     "experiments": {
       "reactCompiler": true
