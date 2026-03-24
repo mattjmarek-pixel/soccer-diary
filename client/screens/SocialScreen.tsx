@@ -30,8 +30,34 @@ import { usePremium } from "@/contexts/PremiumContext";
 import { ACHIEVEMENTS } from "@/constants/achievements";
 
 const FRIENDS_STORAGE_BASE_KEY = "@soccer_diary_friends";
+const COUNTRY_STORAGE_KEY = "@soccer_diary_country";
 
 type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
+type AgeBracket = "All" | "U14" | "U16" | "U18" | "U21" | "Senior";
+type ActiveTab = "global" | "national" | "friends";
+
+const AGE_BRACKETS: AgeBracket[] = ["All", "U14", "U16", "U18", "U21", "Senior"];
+
+const COUNTRIES = [
+  { code: "USA", label: "United States", flag: "🇺🇸" },
+  { code: "ENG", label: "England", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
+  { code: "BRA", label: "Brazil", flag: "🇧🇷" },
+  { code: "ESP", label: "Spain", flag: "🇪🇸" },
+  { code: "GER", label: "Germany", flag: "🇩🇪" },
+  { code: "FRA", label: "France", flag: "🇫🇷" },
+  { code: "ARG", label: "Argentina", flag: "🇦🇷" },
+  { code: "MEX", label: "Mexico", flag: "🇲🇽" },
+  { code: "JPN", label: "Japan", flag: "🇯🇵" },
+  { code: "NED", label: "Netherlands", flag: "🇳🇱" },
+];
+
+function getAgeBracket(age: number): AgeBracket {
+  if (age <= 14) return "U14";
+  if (age <= 16) return "U16";
+  if (age <= 18) return "U18";
+  if (age <= 21) return "U21";
+  return "Senior";
+}
 
 interface LeaderboardPlayer {
   id: string;
@@ -48,6 +74,9 @@ interface LeaderboardPlayer {
   isPro: boolean;
   avatarColor: string;
   initials: string;
+  age: number;
+  country: string;
+  ageBracket: AgeBracket;
   isMe?: boolean;
 }
 
@@ -65,28 +94,41 @@ interface Friend {
   isPro: boolean;
   avatarColor: string;
   initials: string;
+  age: number;
+  country: string;
+  ageBracket: AgeBracket;
 }
 
 const GLOBAL_PLAYERS: LeaderboardPlayer[] = [
-  { id: "p1", name: "Mateo Rodriguez", username: "mateo_cr7", position: "Forward", weeklyMinutes: 840, totalMinutes: 18400, streak: 45, totalSessions: 312, achievementCount: 9, topSkill: "Shooting", level: 28, isPro: true, avatarColor: "#FF6B6B", initials: "MR" },
-  { id: "p2", name: "Jamie Chen", username: "jchen_gk", position: "Goalkeeper", weeklyMinutes: 780, totalMinutes: 16200, streak: 38, totalSessions: 287, achievementCount: 8, topSkill: "Fitness", level: 25, isPro: true, avatarColor: "#4ECDC4", initials: "JC" },
-  { id: "p3", name: "Luca Bianchi", username: "luca_mid10", position: "Midfielder", weeklyMinutes: 720, totalMinutes: 14800, streak: 22, totalSessions: 264, achievementCount: 7, topSkill: "Passing", level: 23, isPro: false, avatarColor: "#45B7D1", initials: "LB" },
-  { id: "p4", name: "Sofia Andersen", username: "sofia_a11", position: "Forward", weeklyMinutes: 660, totalMinutes: 13600, streak: 31, totalSessions: 241, achievementCount: 7, topSkill: "Dribbling", level: 21, isPro: true, avatarColor: "#96CEB4", initials: "SA" },
-  { id: "p5", name: "Kai Nakamura", username: "kai_mid", position: "Midfielder", weeklyMinutes: 600, totalMinutes: 12200, streak: 17, totalSessions: 218, achievementCount: 6, topSkill: "Tactics", level: 19, isPro: false, avatarColor: "#FFEAA7", initials: "KN" },
-  { id: "p6", name: "Aiden Okafor", username: "aiden_def", position: "Defender", weeklyMinutes: 540, totalMinutes: 11000, streak: 14, totalSessions: 196, achievementCount: 5, topSkill: "Fitness", level: 17, isPro: true, avatarColor: "#DDA0DD", initials: "AO" },
-  { id: "p7", name: "Emma Walsh", username: "emma_gk", position: "Goalkeeper", weeklyMinutes: 480, totalMinutes: 9800, streak: 9, totalSessions: 175, achievementCount: 5, topSkill: "First Touch", level: 15, isPro: false, avatarColor: "#F0E68C", initials: "EW" },
-  { id: "p8", name: "Carlos Mendez", username: "c_mendez9", position: "Forward", weeklyMinutes: 420, totalMinutes: 8600, streak: 7, totalSessions: 154, achievementCount: 4, topSkill: "Shooting", level: 13, isPro: false, avatarColor: "#98FB98", initials: "CM" },
-  { id: "p9", name: "Zara Ahmed", username: "zara_mid", position: "Midfielder", weeklyMinutes: 360, totalMinutes: 7200, streak: 5, totalSessions: 132, achievementCount: 3, topSkill: "Passing", level: 11, isPro: true, avatarColor: "#FFB347", initials: "ZA" },
-  { id: "p10", name: "Tyler Brooks", username: "tbrooks_def", position: "Defender", weeklyMinutes: 300, totalMinutes: 6000, streak: 3, totalSessions: 110, achievementCount: 2, topSkill: "Tactics", level: 9, isPro: false, avatarColor: "#87CEEB", initials: "TB" },
+  { id: "p1", name: "Mateo Rodriguez", username: "mateo_cr7", position: "Forward", weeklyMinutes: 840, totalMinutes: 18400, streak: 45, totalSessions: 312, achievementCount: 9, topSkill: "Shooting", level: 28, isPro: true, avatarColor: "#FF6B6B", initials: "MR", age: 17, country: "ESP", ageBracket: "U18" },
+  { id: "p2", name: "Jamie Chen", username: "jchen_gk", position: "Goalkeeper", weeklyMinutes: 780, totalMinutes: 16200, streak: 38, totalSessions: 287, achievementCount: 8, topSkill: "Fitness", level: 25, isPro: true, avatarColor: "#4ECDC4", initials: "JC", age: 19, country: "USA", ageBracket: "U21" },
+  { id: "p3", name: "Luca Bianchi", username: "luca_mid10", position: "Midfielder", weeklyMinutes: 720, totalMinutes: 14800, streak: 22, totalSessions: 264, achievementCount: 7, topSkill: "Passing", level: 23, isPro: false, avatarColor: "#45B7D1", initials: "LB", age: 16, country: "GER", ageBracket: "U16" },
+  { id: "p4", name: "Sofia Andersen", username: "sofia_a11", position: "Forward", weeklyMinutes: 660, totalMinutes: 13600, streak: 31, totalSessions: 241, achievementCount: 7, topSkill: "Dribbling", level: 21, isPro: true, avatarColor: "#96CEB4", initials: "SA", age: 15, country: "USA", ageBracket: "U16" },
+  { id: "p5", name: "Kai Nakamura", username: "kai_mid", position: "Midfielder", weeklyMinutes: 600, totalMinutes: 12200, streak: 17, totalSessions: 218, achievementCount: 6, topSkill: "Tactics", level: 19, isPro: false, avatarColor: "#FFEAA7", initials: "KN", age: 18, country: "JPN", ageBracket: "U18" },
+  { id: "p6", name: "Aiden Okafor", username: "aiden_def", position: "Defender", weeklyMinutes: 540, totalMinutes: 11000, streak: 14, totalSessions: 196, achievementCount: 5, topSkill: "Fitness", level: 17, isPro: true, avatarColor: "#DDA0DD", initials: "AO", age: 14, country: "ENG", ageBracket: "U14" },
+  { id: "p7", name: "Emma Walsh", username: "emma_gk", position: "Goalkeeper", weeklyMinutes: 480, totalMinutes: 9800, streak: 9, totalSessions: 175, achievementCount: 5, topSkill: "First Touch", level: 15, isPro: false, avatarColor: "#F0E68C", initials: "EW", age: 16, country: "USA", ageBracket: "U16" },
+  { id: "p8", name: "Carlos Mendez", username: "c_mendez9", position: "Forward", weeklyMinutes: 420, totalMinutes: 8600, streak: 7, totalSessions: 154, achievementCount: 4, topSkill: "Shooting", level: 13, isPro: false, avatarColor: "#98FB98", initials: "CM", age: 21, country: "MEX", ageBracket: "U21" },
+  { id: "p9", name: "Zara Ahmed", username: "zara_mid", position: "Midfielder", weeklyMinutes: 360, totalMinutes: 7200, streak: 5, totalSessions: 132, achievementCount: 3, topSkill: "Passing", level: 11, isPro: true, avatarColor: "#FFB347", initials: "ZA", age: 13, country: "ENG", ageBracket: "U14" },
+  { id: "p10", name: "Tyler Brooks", username: "tbrooks_def", position: "Defender", weeklyMinutes: 300, totalMinutes: 6000, streak: 3, totalSessions: 110, achievementCount: 2, topSkill: "Tactics", level: 9, isPro: false, avatarColor: "#87CEEB", initials: "TB", age: 15, country: "USA", ageBracket: "U16" },
+  { id: "p11", name: "Isabella Rossi", username: "isa_fwd", position: "Forward", weeklyMinutes: 510, totalMinutes: 10200, streak: 11, totalSessions: 183, achievementCount: 5, topSkill: "Dribbling", level: 16, isPro: true, avatarColor: "#FF9AA2", initials: "IR", age: 17, country: "USA", ageBracket: "U18" },
+  { id: "p12", name: "Marcus Webb", username: "m_webb", position: "Defender", weeklyMinutes: 450, totalMinutes: 9100, streak: 8, totalSessions: 162, achievementCount: 4, topSkill: "Fitness", level: 14, isPro: false, avatarColor: "#3CB371", initials: "MW", age: 20, country: "USA", ageBracket: "U21" },
+  { id: "p13", name: "Lucas Petit", username: "lucas_p7", position: "Midfielder", weeklyMinutes: 390, totalMinutes: 7800, streak: 6, totalSessions: 140, achievementCount: 3, topSkill: "Passing", level: 12, isPro: false, avatarColor: "#6495ED", initials: "LP", age: 16, country: "FRA", ageBracket: "U16" },
+  { id: "p14", name: "Amara Diallo", username: "amara_d", position: "Forward", weeklyMinutes: 330, totalMinutes: 5600, streak: 4, totalSessions: 99, achievementCount: 2, topSkill: "Shooting", level: 8, isPro: false, avatarColor: "#C71585", initials: "AD", age: 14, country: "FRA", ageBracket: "U14" },
+  { id: "p15", name: "Diego Silva", username: "diego_s10", position: "Midfielder", weeklyMinutes: 270, totalMinutes: 4800, streak: 2, totalSessions: 87, achievementCount: 1, topSkill: "Tactics", level: 7, isPro: false, avatarColor: "#FFD700", initials: "DS", age: 18, country: "BRA", ageBracket: "U18" },
+  { id: "p16", name: "Olivia Hart", username: "olivia_h", position: "Defender", weeklyMinutes: 390, totalMinutes: 7400, streak: 9, totalSessions: 134, achievementCount: 3, topSkill: "First Touch", level: 11, isPro: false, avatarColor: "#FF7043", initials: "OH", age: 15, country: "USA", ageBracket: "U16" },
+  { id: "p17", name: "Noah Kim", username: "noah_k_gk", position: "Goalkeeper", weeklyMinutes: 310, totalMinutes: 5200, streak: 3, totalSessions: 94, achievementCount: 2, topSkill: "Fitness", level: 8, isPro: false, avatarColor: "#AB47BC", initials: "NK", age: 13, country: "USA", ageBracket: "U14" },
+  { id: "p18", name: "Fatima Hassan", username: "fatima_h", position: "Midfielder", weeklyMinutes: 470, totalMinutes: 8900, streak: 12, totalSessions: 161, achievementCount: 4, topSkill: "Passing", level: 14, isPro: true, avatarColor: "#00BCD4", initials: "FH", age: 19, country: "ENG", ageBracket: "U21" },
+  { id: "p19", name: "Ryan Torres", username: "rtorres22", position: "Forward", weeklyMinutes: 350, totalMinutes: 6200, streak: 5, totalSessions: 113, achievementCount: 2, topSkill: "Shooting", level: 10, isPro: false, avatarColor: "#8BC34A", initials: "RT", age: 17, country: "USA", ageBracket: "U18" },
+  { id: "p20", name: "Chloe Martin", username: "chloe_m", position: "Defender", weeklyMinutes: 240, totalMinutes: 4200, streak: 1, totalSessions: 76, achievementCount: 1, topSkill: "Tactics", level: 6, isPro: false, avatarColor: "#E91E63", initials: "CM", age: 22, country: "FRA", ageBracket: "Senior" },
 ];
 
 const SEARCH_POOL: Friend[] = [
-  { id: "s1", name: "Alex Torres", username: "alex_t22", position: "Midfielder", weeklyMinutes: 420, totalMinutes: 7800, streak: 8, totalSessions: 143, achievementCount: 4, topSkill: "Dribbling", isPro: false, avatarColor: "#FF8C69", initials: "AT" },
-  { id: "s2", name: "Riley Park", username: "riley_fwd", position: "Forward", weeklyMinutes: 360, totalMinutes: 6500, streak: 5, totalSessions: 118, achievementCount: 3, topSkill: "Shooting", isPro: true, avatarColor: "#7B68EE", initials: "RP" },
-  { id: "s3", name: "Sam Dubois", username: "sam_d7", position: "Midfielder", weeklyMinutes: 480, totalMinutes: 8900, streak: 12, totalSessions: 161, achievementCount: 5, topSkill: "Passing", isPro: false, avatarColor: "#20B2AA", initials: "SD" },
-  { id: "s4", name: "Jordan Lee", username: "jordan_gk1", position: "Goalkeeper", weeklyMinutes: 300, totalMinutes: 5400, streak: 4, totalSessions: 97, achievementCount: 2, topSkill: "First Touch", isPro: false, avatarColor: "#DA70D6", initials: "JL" },
-  { id: "s5", name: "Marcus Webb", username: "m_webb", position: "Defender", weeklyMinutes: 540, totalMinutes: 9600, streak: 16, totalSessions: 177, achievementCount: 6, topSkill: "Fitness", isPro: true, avatarColor: "#3CB371", initials: "MW" },
-  { id: "s6", name: "Priya Sharma", username: "priya_s", position: "Forward", weeklyMinutes: 390, totalMinutes: 7100, streak: 6, totalSessions: 129, achievementCount: 3, topSkill: "Dribbling", isPro: false, avatarColor: "#CD853F", initials: "PS" },
+  { id: "s1", name: "Alex Torres", username: "alex_t22", position: "Midfielder", weeklyMinutes: 420, totalMinutes: 7800, streak: 8, totalSessions: 143, achievementCount: 4, topSkill: "Dribbling", isPro: false, avatarColor: "#FF8C69", initials: "AT", age: 16, country: "USA", ageBracket: "U16" },
+  { id: "s2", name: "Riley Park", username: "riley_fwd", position: "Forward", weeklyMinutes: 360, totalMinutes: 6500, streak: 5, totalSessions: 118, achievementCount: 3, topSkill: "Shooting", isPro: true, avatarColor: "#7B68EE", initials: "RP", age: 17, country: "USA", ageBracket: "U18" },
+  { id: "s3", name: "Sam Dubois", username: "sam_d7", position: "Midfielder", weeklyMinutes: 480, totalMinutes: 8900, streak: 12, totalSessions: 161, achievementCount: 5, topSkill: "Passing", isPro: false, avatarColor: "#20B2AA", initials: "SD", age: 15, country: "FRA", ageBracket: "U16" },
+  { id: "s4", name: "Jordan Lee", username: "jordan_gk1", position: "Goalkeeper", weeklyMinutes: 300, totalMinutes: 5400, streak: 4, totalSessions: 97, achievementCount: 2, topSkill: "First Touch", isPro: false, avatarColor: "#DA70D6", initials: "JL", age: 18, country: "USA", ageBracket: "U18" },
+  { id: "s5", name: "Marcus Webb", username: "m_webb", position: "Defender", weeklyMinutes: 540, totalMinutes: 9600, streak: 16, totalSessions: 177, achievementCount: 6, topSkill: "Fitness", isPro: true, avatarColor: "#3CB371", initials: "MW", age: 20, country: "USA", ageBracket: "U21" },
+  { id: "s6", name: "Priya Sharma", username: "priya_s", position: "Forward", weeklyMinutes: 390, totalMinutes: 7100, streak: 6, totalSessions: 129, achievementCount: 3, topSkill: "Dribbling", isPro: false, avatarColor: "#CD853F", initials: "PS", age: 14, country: "ENG", ageBracket: "U14" },
 ];
 
 const WEEKLY_CHALLENGE = {
@@ -139,10 +181,48 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-function AvatarBubble({ initials, color, size = 40, isPro }: { initials: string; color: string; size?: number; isPro?: boolean }) {
+function buildRankedList(
+  allPlayers: LeaderboardPlayer[],
+  myPlayer: LeaderboardPlayer,
+  myWeeklyMins: number
+): Array<{ player: LeaderboardPlayer; rank: number }> {
+  const withMe = [...allPlayers];
+  const insertIdx = withMe.findIndex((p) => p.weeklyMinutes < myWeeklyMins);
+  if (insertIdx !== -1) {
+    withMe.splice(insertIdx, 0, myPlayer);
+  } else {
+    withMe.push(myPlayer);
+  }
+  const ranked = withMe.map((p, idx) => ({ player: p, rank: idx + 1 }));
+  const TOP_N = 15;
+  const top = ranked.slice(0, TOP_N);
+  const userInTop = top.some((r) => r.player.isMe);
+  if (!userInTop) {
+    const userEntry = ranked.find((r) => r.player.isMe);
+    if (userEntry) return [...top.slice(0, TOP_N - 1), userEntry];
+  }
+  return top;
+}
+
+function AvatarBubble({
+  initials,
+  color,
+  size = 40,
+  isPro,
+}: {
+  initials: string;
+  color: string;
+  size?: number;
+  isPro?: boolean;
+}) {
   return (
     <View style={{ width: size, height: size, position: "relative" }}>
-      <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: color + "33", borderColor: color }]}>
+      <View
+        style={[
+          styles.avatar,
+          { width: size, height: size, borderRadius: size / 2, backgroundColor: color + "33", borderColor: color },
+        ]}
+      >
         <ThemedText style={{ fontSize: size * 0.35, fontWeight: "700", color }}>{initials}</ThemedText>
       </View>
       {isPro ? (
@@ -155,7 +235,14 @@ function AvatarBubble({ initials, color, size = 40, isPro }: { initials: string;
 }
 
 function RankBadge({ rank }: { rank: number }) {
-  const color = rank === 1 ? "#FFD700" : rank === 2 ? "#C0C0C0" : rank === 3 ? "#CD7F32" : Colors.dark.textSecondary;
+  const color =
+    rank === 1
+      ? "#FFD700"
+      : rank === 2
+      ? "#C0C0C0"
+      : rank === 3
+      ? "#CD7F32"
+      : Colors.dark.textSecondary;
   const bg = rank <= 3 ? color + "22" : "transparent";
   const borderColor = rank <= 3 ? color : "transparent";
   return (
@@ -183,7 +270,9 @@ function PlayerRow({
       <Pressable
         onPress={() => {
           Haptics.selectionAsync();
-          scale.value = withSpring(0.97, { damping: 15 }, () => { scale.value = withSpring(1); });
+          scale.value = withSpring(0.97, { damping: 15 }, () => {
+            scale.value = withSpring(1);
+          });
           onPress();
         }}
         style={[styles.playerRow, player.isMe && styles.playerRowMe]}
@@ -194,7 +283,10 @@ function PlayerRow({
         </View>
         <View style={styles.playerInfo}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <ThemedText style={[styles.playerName, player.isMe && { color: Colors.dark.primary }]} numberOfLines={1}>
+            <ThemedText
+              style={[styles.playerName, player.isMe && { color: Colors.dark.primary }]}
+              numberOfLines={1}
+            >
               {player.name}
             </ThemedText>
             {player.isMe ? (
@@ -203,11 +295,14 @@ function PlayerRow({
               </View>
             ) : null}
           </View>
-          <ThemedText style={styles.playerMeta}>{player.position} · {player.topSkill}</ThemedText>
+          <ThemedText style={styles.playerMeta}>
+            {player.position} · {player.ageBracket}
+          </ThemedText>
         </View>
         <View style={styles.playerStats}>
           <ThemedText style={styles.statValue}>
-            {player.weeklyMinutes}<ThemedText style={styles.statUnit}>m</ThemedText>
+            {player.weeklyMinutes}
+            <ThemedText style={styles.statUnit}>m</ThemedText>
           </ThemedText>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
             <Feather name="zap" size={10} color={Colors.dark.accent} />
@@ -219,8 +314,15 @@ function PlayerRow({
   );
 }
 
-function PlayerProfileModal({ player, onClose }: { player: LeaderboardPlayer | null; onClose: () => void }) {
+function PlayerProfileModal({
+  player,
+  onClose,
+}: {
+  player: LeaderboardPlayer | null;
+  onClose: () => void;
+}) {
   if (!player) return null;
+  const countryInfo = COUNTRIES.find((c) => c.code === player.country);
   const statItems: { label: string; value: string | number; icon: FeatherIconName }[] = [
     { label: "Sessions", value: player.totalSessions, icon: "edit-3" },
     { label: "Total Mins", value: player.totalMinutes, icon: "clock" },
@@ -238,8 +340,24 @@ function PlayerProfileModal({ player, onClose }: { player: LeaderboardPlayer | n
             <AvatarBubble initials={player.initials} color={player.avatarColor} size={72} isPro={player.isPro} />
             <ThemedText style={styles.profileName}>{player.name}</ThemedText>
             <ThemedText style={styles.profileUsername}>@{player.username}</ThemedText>
-            <View style={styles.positionTag}>
-              <ThemedText style={{ fontSize: 12, color: Colors.dark.primary, fontWeight: "600" }}>{player.position}</ThemedText>
+            <View style={{ flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.sm }}>
+              <View style={styles.positionTag}>
+                <ThemedText style={{ fontSize: 12, color: Colors.dark.primary, fontWeight: "600" }}>
+                  {player.position}
+                </ThemedText>
+              </View>
+              <View style={styles.positionTag}>
+                <ThemedText style={{ fontSize: 12, color: Colors.dark.primary, fontWeight: "600" }}>
+                  {player.ageBracket}
+                </ThemedText>
+              </View>
+              {countryInfo ? (
+                <View style={styles.positionTag}>
+                  <ThemedText style={{ fontSize: 12, color: Colors.dark.primary, fontWeight: "600" }}>
+                    {countryInfo.flag} {countryInfo.code}
+                  </ThemedText>
+                </View>
+              ) : null}
             </View>
           </View>
           <View style={styles.statsGrid}>
@@ -260,7 +378,12 @@ function PlayerProfileModal({ player, onClose }: { player: LeaderboardPlayer | n
   );
 }
 
-function AddFriendModal({ visible, friends, onClose, onAddFriend }: {
+function AddFriendModal({
+  visible,
+  friends,
+  onClose,
+  onAddFriend,
+}: {
   visible: boolean;
   friends: Friend[];
   onClose: () => void;
@@ -271,6 +394,7 @@ function AddFriendModal({ visible, friends, onClose, onAddFriend }: {
   useEffect(() => {
     if (!visible) setQuery("");
   }, [visible]);
+
   const friendIds = new Set(friends.map((f) => f.id));
   const results = SEARCH_POOL.filter(
     (p) =>
@@ -312,7 +436,9 @@ function AddFriendModal({ visible, friends, onClose, onAddFriend }: {
                 <AvatarBubble initials={item.initials} color={item.avatarColor} size={40} isPro={item.isPro} />
                 <View style={{ flex: 1, marginLeft: Spacing.md }}>
                   <ThemedText style={{ fontWeight: "700", color: Colors.dark.text }}>{item.name}</ThemedText>
-                  <ThemedText style={{ fontSize: 12, color: Colors.dark.textSecondary }}>@{item.username} · {item.position}</ThemedText>
+                  <ThemedText style={{ fontSize: 12, color: Colors.dark.textSecondary }}>
+                    @{item.username} · {item.position} · {item.ageBracket}
+                  </ThemedText>
                 </View>
                 <Pressable
                   style={styles.addBtn}
@@ -328,12 +454,62 @@ function AddFriendModal({ visible, friends, onClose, onAddFriend }: {
             ListEmptyComponent={
               <View style={{ alignItems: "center", paddingVertical: Spacing["3xl"] }}>
                 <Feather name="users" size={32} color={Colors.dark.textSecondary} />
-                <ThemedText style={{ color: Colors.dark.textSecondary, marginTop: Spacing.md }}>No players found</ThemedText>
+                <ThemedText style={{ color: Colors.dark.textSecondary, marginTop: Spacing.md }}>
+                  No players found
+                </ThemedText>
               </View>
             }
           />
           <Pressable style={[styles.closeBtn, { marginTop: Spacing.md }]} onPress={onClose}>
             <ThemedText style={{ color: Colors.dark.buttonText, fontWeight: "700", fontSize: 15 }}>Done</ThemedText>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function CountryPickerModal({
+  visible,
+  current,
+  onClose,
+  onSelect,
+}: {
+  visible: boolean;
+  current: string;
+  onClose: () => void;
+  onSelect: (code: string) => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={[styles.profileSheet, { maxHeight: "70%" }]}>
+          <View style={styles.sheetHandle} />
+          <ThemedText style={[styles.profileName, { marginBottom: Spacing.lg }]}>Select Your Country</ThemedText>
+          <FlatList
+            data={COUNTRIES}
+            keyExtractor={(item) => item.code}
+            renderItem={({ item }) => (
+              <Pressable
+                style={[styles.countryRow, item.code === current && styles.countryRowActive]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  onSelect(item.code);
+                  onClose();
+                }}
+              >
+                <ThemedText style={styles.countryFlag}>{item.flag}</ThemedText>
+                <ThemedText style={[styles.countryLabel, item.code === current && { color: Colors.dark.primary }]}>
+                  {item.label}
+                </ThemedText>
+                {item.code === current ? (
+                  <Feather name="check" size={16} color={Colors.dark.primary} />
+                ) : null}
+              </Pressable>
+            )}
+          />
+          <Pressable style={[styles.closeBtn, { marginTop: Spacing.md }]} onPress={onClose}>
+            <ThemedText style={{ color: Colors.dark.buttonText, fontWeight: "700", fontSize: 15 }}>Cancel</ThemedText>
           </Pressable>
         </View>
       </View>
@@ -348,12 +524,22 @@ export default function SocialScreen() {
   const { user } = useAuth();
   const { isPremium } = usePremium();
 
-  const [activeTab, setActiveTab] = useState<"global" | "friends">("global");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("global");
+  const [ageBracket, setAgeBracket] = useState<AgeBracket>("All");
   const [friends, setFriends] = useState<Friend[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState<LeaderboardPlayer | null>(null);
   const [showAddFriend, setShowAddFriend] = useState(false);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [userCountry, setUserCountry] = useState("USA");
 
   const friendsKey = user ? `${FRIENDS_STORAGE_BASE_KEY}_${user.id}` : null;
+  const countryKey = user ? `${COUNTRY_STORAGE_KEY}_${user.id}` : COUNTRY_STORAGE_KEY;
+
+  useEffect(() => {
+    AsyncStorage.getItem(countryKey).then((v) => {
+      if (v) setUserCountry(v);
+    });
+  }, [countryKey]);
 
   useEffect(() => {
     if (!friendsKey) return;
@@ -368,15 +554,30 @@ export default function SocialScreen() {
     });
   }, [friendsKey]);
 
-  const saveFriends = useCallback(async (list: Friend[]) => {
-    if (!friendsKey) return;
-    try {
-      await AsyncStorage.setItem(friendsKey, JSON.stringify(list));
-    } catch {
-      // Storage write failed silently
-    }
-    setFriends(list);
-  }, [friendsKey]);
+  const saveFriends = useCallback(
+    async (list: Friend[]) => {
+      if (!friendsKey) return;
+      try {
+        await AsyncStorage.setItem(friendsKey, JSON.stringify(list));
+      } catch {
+        // Storage write failed silently
+      }
+      setFriends(list);
+    },
+    [friendsKey]
+  );
+
+  const handleSelectCountry = useCallback(
+    async (code: string) => {
+      setUserCountry(code);
+      try {
+        await AsyncStorage.setItem(countryKey, code);
+      } catch {
+        // ignore
+      }
+    },
+    [countryKey]
+  );
 
   const handleAddFriend = useCallback(
     (friend: Friend) => {
@@ -391,6 +592,9 @@ export default function SocialScreen() {
   const topSkill = getTopSkill(entries);
   const userLevel = getUserLevel(stats.totalEntries);
   const userAchievementCount = ACHIEVEMENTS.filter((a) => a.isEarned(entries, stats)).length;
+  const userAge = user?.age ?? 16;
+  const userAgeBracket = getAgeBracket(userAge);
+  const countryInfo = COUNTRIES.find((c) => c.code === userCountry) ?? COUNTRIES[0];
 
   const myPlayer: LeaderboardPlayer = {
     id: "me",
@@ -407,40 +611,48 @@ export default function SocialScreen() {
     isPro: isPremium,
     avatarColor: Colors.dark.primary,
     initials: getInitials(user?.name ?? "Me"),
+    age: userAge,
+    country: userCountry,
+    ageBracket: userAgeBracket,
     isMe: true,
   };
 
-  const globalWithMe = [...GLOBAL_PLAYERS];
-  const insertRank = globalWithMe.findIndex((p) => p.weeklyMinutes < weeklyMins);
-  const myRankGlobal = insertRank === -1 ? globalWithMe.length + 1 : insertRank + 1;
-  if (insertRank !== -1) {
-    globalWithMe.splice(insertRank, 0, myPlayer);
-  } else {
-    globalWithMe.push(myPlayer);
-  }
+  // --- Global leaderboard (all countries, age filtered) ---
+  const globalPool = ageBracket === "All"
+    ? GLOBAL_PLAYERS
+    : GLOBAL_PLAYERS.filter((p) => p.ageBracket === ageBracket);
+  const globalDisplayList = buildRankedList(globalPool, myPlayer, weeklyMins);
 
-  // Show top 14 + always include user row even if outside top 15
-  // Each item carries its true global rank for accurate display
-  const TOP_N = 15;
-  const globalDisplayList: Array<{ player: LeaderboardPlayer; globalRank: number }> = (() => {
-    const ranked = globalWithMe.map((p, idx) => ({ player: p, globalRank: idx + 1 }));
-    const top = ranked.slice(0, TOP_N);
-    const userInTop = top.some((r) => r.player.isMe);
-    if (!userInTop) {
-      const userEntry = ranked.find((r) => r.player.isMe);
-      if (userEntry) return [...top.slice(0, TOP_N - 1), userEntry];
-    }
-    return top;
-  })();
+  // --- National leaderboard (same country, age filtered) ---
+  const nationalBase = GLOBAL_PLAYERS.filter((p) => p.country === userCountry);
+  const nationalPool = ageBracket === "All"
+    ? nationalBase
+    : nationalBase.filter((p) => p.ageBracket === ageBracket);
+  const nationalDisplayList = buildRankedList(nationalPool, myPlayer, weeklyMins);
 
+  // --- Age bracket leaderboard rank (for summary card) ---
+  const ageBracketPool = GLOBAL_PLAYERS.filter((p) => p.ageBracket === userAgeBracket);
+  const ageBracketRanked = [...ageBracketPool, myPlayer].sort((a, b) => b.weeklyMinutes - a.weeklyMinutes);
+  const myAgeBracketRank = ageBracketRanked.findIndex((p) => p.isMe) + 1;
+
+  // --- Full global rank (no filter) for summary ---
+  const myRankGlobal = [...GLOBAL_PLAYERS, myPlayer].sort((a, b) => b.weeklyMinutes - a.weeklyMinutes).findIndex((p) => p.isMe) + 1;
+  const totalGlobal = GLOBAL_PLAYERS.length + 1;
+
+  // --- National rank (no filter) for summary ---
+  const nationalAllPool = [...nationalBase, myPlayer].sort((a, b) => b.weeklyMinutes - a.weeklyMinutes);
+  const myNationalRank = nationalAllPool.findIndex((p) => p.isMe) + 1;
+  const totalNational = nationalAllPool.length;
+
+  // --- Friends tab ---
   const friendsAsLeaderboard: LeaderboardPlayer[] = friends.map((f) => ({
     ...f,
     level: getUserLevel(f.totalSessions),
     isMe: false,
   }));
+  const friendsWithMe = [myPlayer, ...friendsAsLeaderboard].sort((a, b) => b.weeklyMinutes - a.weeklyMinutes);
 
-  const friendsWithMe = [myPlayer, ...friendsAsLeaderboard]
-    .sort((a, b) => b.weeklyMinutes - a.weeklyMinutes);
+  const showAgeBracketFilter = activeTab !== "friends";
 
   return (
     <View style={[styles.container, { paddingTop: headerHeight }]}>
@@ -459,7 +671,9 @@ export default function SocialScreen() {
               <ThemedText style={styles.challengeDesc}>{WEEKLY_CHALLENGE.description}</ThemedText>
             </View>
             <View style={styles.daysLeft}>
-              <ThemedText style={{ fontSize: 12, color: Colors.dark.accent, fontWeight: "700" }}>{WEEKLY_CHALLENGE.daysLeft}d</ThemedText>
+              <ThemedText style={{ fontSize: 12, color: Colors.dark.accent, fontWeight: "700" }}>
+                {WEEKLY_CHALLENGE.daysLeft}d
+              </ThemedText>
               <ThemedText style={{ fontSize: 9, color: Colors.dark.textSecondary }}>left</ThemedText>
             </View>
           </View>
@@ -485,65 +699,153 @@ export default function SocialScreen() {
           ) : null}
         </Animated.View>
 
+        {/* Rankings Summary Card */}
+        <Animated.View entering={FadeIn.delay(80)} style={styles.rankSummaryCard}>
+          <ThemedText style={styles.rankSummaryTitle}>Your Rankings This Week</ThemedText>
+          <View style={styles.rankPillRow}>
+            <View style={styles.rankPill}>
+              <Feather name="globe" size={12} color={Colors.dark.textSecondary} />
+              <ThemedText style={styles.rankPillLabel}>Global</ThemedText>
+              <ThemedText style={styles.rankPillValue}>#{myRankGlobal}</ThemedText>
+              <ThemedText style={styles.rankPillSub}>of {totalGlobal}</ThemedText>
+            </View>
+            <View style={[styles.rankPill, { borderColor: Colors.dark.primary + "44" }]}>
+              <ThemedText style={{ fontSize: 12 }}>{countryInfo.flag}</ThemedText>
+              <ThemedText style={styles.rankPillLabel}>National</ThemedText>
+              <ThemedText style={[styles.rankPillValue, { color: Colors.dark.primary }]}>#{myNationalRank}</ThemedText>
+              <ThemedText style={styles.rankPillSub}>of {totalNational}</ThemedText>
+            </View>
+            <View style={styles.rankPill}>
+              <Feather name="users" size={12} color={Colors.dark.textSecondary} />
+              <ThemedText style={styles.rankPillLabel}>{userAgeBracket}</ThemedText>
+              <ThemedText style={styles.rankPillValue}>#{myAgeBracketRank}</ThemedText>
+              <ThemedText style={styles.rankPillSub}>of {ageBracketPool.length + 1}</ThemedText>
+            </View>
+          </View>
+        </Animated.View>
+
         {/* Tab Switcher */}
         <Animated.View entering={FadeIn.delay(100)} style={styles.tabRow}>
           <Pressable
             style={[styles.tabBtn, activeTab === "global" && styles.tabBtnActive]}
             onPress={() => setActiveTab("global")}
           >
-            <Feather name="globe" size={14} color={activeTab === "global" ? Colors.dark.primary : Colors.dark.textSecondary} />
+            <Feather
+              name="globe"
+              size={13}
+              color={activeTab === "global" ? Colors.dark.primary : Colors.dark.textSecondary}
+            />
             <ThemedText style={[styles.tabLabel, activeTab === "global" && styles.tabLabelActive]}>Global</ThemedText>
+          </Pressable>
+          <Pressable
+            style={[styles.tabBtn, activeTab === "national" && styles.tabBtnActive]}
+            onPress={() => setActiveTab("national")}
+          >
+            <ThemedText style={{ fontSize: 13 }}>{countryInfo.flag}</ThemedText>
+            <ThemedText style={[styles.tabLabel, activeTab === "national" && styles.tabLabelActive]}>
+              National
+            </ThemedText>
           </Pressable>
           <Pressable
             style={[styles.tabBtn, activeTab === "friends" && styles.tabBtnActive]}
             onPress={() => setActiveTab("friends")}
           >
-            <Feather name="users" size={14} color={activeTab === "friends" ? Colors.dark.primary : Colors.dark.textSecondary} />
+            <Feather
+              name="users"
+              size={13}
+              color={activeTab === "friends" ? Colors.dark.primary : Colors.dark.textSecondary}
+            />
             <ThemedText style={[styles.tabLabel, activeTab === "friends" && styles.tabLabelActive]}>
               {`Friends${friends.length > 0 ? ` (${friends.length})` : ""}`}
             </ThemedText>
           </Pressable>
-          {activeTab === "friends" ? (
-            <Pressable style={styles.addFriendBtn} onPress={() => setShowAddFriend(true)}>
-              <Feather name="user-plus" size={14} color={Colors.dark.primary} />
-            </Pressable>
-          ) : null}
         </Animated.View>
 
-        {/* My Rank Summary (Global only) */}
-        {activeTab === "global" ? (
-          <Animated.View entering={FadeIn.delay(150)} style={styles.myRankCard}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.md }}>
-              <Feather name="award" size={18} color={Colors.dark.accent} />
-              <View>
-                <ThemedText style={{ color: Colors.dark.textSecondary, fontSize: 12 }}>Your Global Rank</ThemedText>
-                <ThemedText style={{ color: Colors.dark.text, fontWeight: "800", fontSize: 18 }}>
-                  #{myRankGlobal}{" "}
-                  <ThemedText style={{ fontSize: 13, fontWeight: "400", color: Colors.dark.textSecondary }}>
-                    of {globalWithMe.length.toLocaleString()}+
+        {/* Country selector row (national tab) */}
+        {activeTab === "national" ? (
+          <Animated.View entering={FadeIn} style={styles.countrySelector}>
+            <ThemedText style={styles.countrySelectorLabel}>Showing rankings for:</ThemedText>
+            <Pressable style={styles.countrySelectorBtn} onPress={() => setShowCountryPicker(true)}>
+              <ThemedText style={{ fontSize: 16 }}>{countryInfo.flag}</ThemedText>
+              <ThemedText style={styles.countrySelectorName}>{countryInfo.label}</ThemedText>
+              <Feather name="chevron-down" size={14} color={Colors.dark.primary} />
+            </Pressable>
+          </Animated.View>
+        ) : null}
+
+        {/* Add friend button (friends tab) */}
+        {activeTab === "friends" ? (
+          <Animated.View entering={FadeIn} style={styles.addFriendBar}>
+            <Pressable style={styles.addFriendBarBtn} onPress={() => setShowAddFriend(true)}>
+              <Feather name="user-plus" size={14} color={Colors.dark.primary} />
+              <ThemedText style={{ color: Colors.dark.primary, fontWeight: "700", fontSize: 13, marginLeft: 6 }}>
+                Find Players
+              </ThemedText>
+            </Pressable>
+          </Animated.View>
+        ) : null}
+
+        {/* Age Bracket Filter Chips */}
+        {showAgeBracketFilter ? (
+          <Animated.View entering={FadeIn.delay(120)}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.bracketChips}
+            >
+              {AGE_BRACKETS.map((bracket) => (
+                <Pressable
+                  key={bracket}
+                  style={[styles.bracketChip, ageBracket === bracket && styles.bracketChipActive]}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setAgeBracket(bracket);
+                  }}
+                >
+                  <ThemedText
+                    style={[
+                      styles.bracketChipLabel,
+                      ageBracket === bracket && styles.bracketChipLabelActive,
+                    ]}
+                  >
+                    {bracket}
                   </ThemedText>
-                </ThemedText>
-              </View>
-              <View style={{ flex: 1 }} />
-              <View style={{ alignItems: "flex-end" }}>
-                <ThemedText style={{ color: Colors.dark.textSecondary, fontSize: 11 }}>This week</ThemedText>
-                <ThemedText style={{ color: Colors.dark.primary, fontWeight: "700", fontSize: 16 }}>{weeklyMins}m</ThemedText>
-              </View>
-            </View>
+                </Pressable>
+              ))}
+            </ScrollView>
           </Animated.View>
         ) : null}
 
         {/* Leaderboard List */}
         <View style={styles.leaderboard}>
           {activeTab === "global" ? (
-            globalDisplayList.map(({ player, globalRank }) => (
+            globalDisplayList.map(({ player, rank }) => (
               <PlayerRow
                 key={player.id}
                 player={player}
-                rank={globalRank}
+                rank={rank}
                 onPress={() => setSelectedPlayer(player)}
               />
             ))
+          ) : activeTab === "national" ? (
+            nationalDisplayList.length === 0 ? (
+              <View style={styles.emptyFriends}>
+                <Feather name="map" size={40} color={Colors.dark.textSecondary} />
+                <ThemedText style={styles.emptyTitle}>No players found</ThemedText>
+                <ThemedText style={styles.emptySubtitle}>
+                  No {ageBracket !== "All" ? ageBracket + " " : ""}players from {countryInfo.label} yet.
+                </ThemedText>
+              </View>
+            ) : (
+              nationalDisplayList.map(({ player, rank }) => (
+                <PlayerRow
+                  key={player.id}
+                  player={player}
+                  rank={rank}
+                  onPress={() => setSelectedPlayer(player)}
+                />
+              ))
+            )
           ) : (
             <>
               {friendsWithMe.map((player, idx) => (
@@ -563,7 +865,9 @@ export default function SocialScreen() {
                   </ThemedText>
                   <Pressable style={styles.addFriendCta} onPress={() => setShowAddFriend(true)}>
                     <Feather name="user-plus" size={16} color={Colors.dark.buttonText} />
-                    <ThemedText style={{ color: Colors.dark.buttonText, fontWeight: "700", marginLeft: 8 }}>Find Players</ThemedText>
+                    <ThemedText style={{ color: Colors.dark.buttonText, fontWeight: "700", marginLeft: 8 }}>
+                      Find Players
+                    </ThemedText>
                   </Pressable>
                 </Animated.View>
               ) : null}
@@ -580,6 +884,12 @@ export default function SocialScreen() {
         friends={friends}
         onClose={() => setShowAddFriend(false)}
         onAddFriend={handleAddFriend}
+      />
+      <CountryPickerModal
+        visible={showCountryPicker}
+        current={userCountry}
+        onClose={() => setShowCountryPicker(false)}
+        onSelect={handleSelectCountry}
       />
     </View>
   );
@@ -652,11 +962,56 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xs,
     padding: Spacing.sm,
   },
+  rankSummaryCard: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "22",
+  },
+  rankSummaryTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.textSecondary,
+    marginBottom: Spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  rankPillRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  rankPill: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    alignItems: "center",
+    gap: 2,
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundSecondary,
+  },
+  rankPillLabel: {
+    fontSize: 10,
+    color: Colors.dark.textSecondary,
+    fontWeight: "600",
+  },
+  rankPillValue: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: Colors.dark.text,
+  },
+  rankPillSub: {
+    fontSize: 9,
+    color: Colors.dark.textSecondary,
+  },
   tabRow: {
     flexDirection: "row",
     alignItems: "center",
     marginHorizontal: Spacing.lg,
-    marginVertical: Spacing.sm,
+    marginBottom: Spacing.xs,
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.sm,
     padding: 4,
@@ -666,7 +1021,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 5,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.xs,
   },
@@ -674,25 +1029,80 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundSecondary,
   },
   tabLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
     color: Colors.dark.textSecondary,
   },
   tabLabelActive: {
     color: Colors.dark.primary,
   },
-  addFriendBtn: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-  },
-  myRankCard: {
+  countrySelector: {
+    flexDirection: "row",
+    alignItems: "center",
     marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
+    gap: Spacing.sm,
+  },
+  countrySelectorLabel: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  countrySelectorBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.md,
+    borderRadius: BorderRadius.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "33",
+    borderColor: Colors.dark.primary + "44",
+  },
+  countrySelectorName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  addFriendBar: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.xs,
+    alignItems: "flex-end",
+  },
+  addFriendBarBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "44",
+  },
+  bracketChips: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.sm,
+    flexDirection: "row",
+  },
+  bracketChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundSecondary,
+  },
+  bracketChipActive: {
+    backgroundColor: Colors.dark.primary + "22",
+    borderColor: Colors.dark.primary,
+  },
+  bracketChipLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+  },
+  bracketChipLabelActive: {
+    color: Colors.dark.primary,
   },
   leaderboard: {
     marginHorizontal: Spacing.lg,
@@ -893,5 +1303,26 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.xs,
     padding: Spacing.sm,
+  },
+  countryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundSecondary,
+    gap: Spacing.md,
+  },
+  countryRowActive: {
+    backgroundColor: Colors.dark.primary + "11",
+  },
+  countryFlag: {
+    fontSize: 22,
+  },
+  countryLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
   },
 });
