@@ -24,6 +24,9 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
+  withRepeat,
+  interpolate,
   FadeIn,
   FadeInDown,
 } from "react-native-reanimated";
@@ -187,6 +190,12 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
+function getRankChange(playerId: string): -1 | 0 | 1 {
+  const hash = playerId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const v = hash % 3;
+  return (v === 0 ? -1 : v === 1 ? 0 : 1) as -1 | 0 | 1;
+}
+
 function buildRankedList(
   allPlayers: LeaderboardPlayer[],
   myPlayer: LeaderboardPlayer,
@@ -260,17 +269,154 @@ function RankBadge({ rank }: { rank: number }) {
   );
 }
 
+const MEDAL_COLORS: Record<1 | 2 | 3, string> = {
+  1: "#FFD700",
+  2: "#C0C0C0",
+  3: "#CD7F32",
+};
+
+function PodiumPlayer({
+  player,
+  rank,
+  elevated,
+  onPress,
+}: {
+  player: LeaderboardPlayer;
+  rank: 1 | 2 | 3;
+  elevated?: boolean;
+  onPress: (p: LeaderboardPlayer) => void;
+}) {
+  const medalColor = MEDAL_COLORS[rank];
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const avatarSize = elevated ? 66 : 52;
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(rank * 60).springify()}
+      style={[{ flex: 1, alignItems: "center" }, animStyle]}
+    >
+      <Pressable
+        onPress={() => {
+          Haptics.selectionAsync();
+          scale.value = withSpring(0.93, { damping: 15 }, () => { scale.value = withSpring(1); });
+          onPress(player);
+        }}
+        style={{ alignItems: "center", paddingVertical: elevated ? 0 : Spacing.sm, paddingHorizontal: 4 }}
+      >
+        {rank === 1 ? (
+          <Feather name="award" size={18} color={medalColor} style={{ marginBottom: 4 }} />
+        ) : (
+          <View style={{ height: 22 }} />
+        )}
+        <View
+          style={{
+            borderRadius: (avatarSize + 8) / 2,
+            borderWidth: 3,
+            borderColor: medalColor,
+            marginBottom: Spacing.sm,
+            shadowColor: medalColor,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: elevated ? 0.7 : 0.4,
+            shadowRadius: elevated ? 12 : 6,
+          }}
+        >
+          <AvatarBubble initials={player.initials} color={player.avatarColor} size={avatarSize} isPro={player.isPro} />
+        </View>
+        <View
+          style={{
+            backgroundColor: medalColor + "22",
+            borderRadius: BorderRadius.full,
+            borderWidth: 1,
+            borderColor: medalColor,
+            paddingHorizontal: 8,
+            paddingVertical: 2,
+            marginBottom: Spacing.xs,
+          }}
+        >
+          <ThemedText style={{ fontSize: 10, fontWeight: "800", color: medalColor }}>
+            {rank === 1 ? "1st" : rank === 2 ? "2nd" : "3rd"}
+          </ThemedText>
+        </View>
+        <ThemedText
+          numberOfLines={1}
+          style={{
+            fontSize: 11,
+            fontWeight: "700",
+            color: player.isMe ? Colors.dark.primary : Colors.dark.text,
+            maxWidth: 80,
+            textAlign: "center",
+          }}
+        >
+          {player.isMe ? "You" : player.name.split(" ")[0]}
+        </ThemedText>
+        <ThemedText style={{ fontSize: 10, color: Colors.dark.textSecondary, marginTop: 1 }}>
+          {player.weeklyMinutes}m
+        </ThemedText>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+function TopThreePodium({
+  players,
+  onPress,
+}: {
+  players: Array<{ player: LeaderboardPlayer; rank: number }>;
+  onPress: (p: LeaderboardPlayer) => void;
+}) {
+  const p1 = players[0]?.player;
+  const p2 = players[1]?.player;
+  const p3 = players[2]?.player;
+  if (!p1) return null;
+  return (
+    <Animated.View entering={FadeIn.delay(20)} style={styles.podiumContainer}>
+      <View style={styles.podiumRow}>
+        {p2 ? <PodiumPlayer player={p2} rank={2} onPress={onPress} /> : <View style={{ flex: 1 }} />}
+        <View style={[{ flex: 1, alignItems: "center" }]}>
+          {p1 ? <PodiumPlayer player={p1} rank={1} elevated onPress={onPress} /> : null}
+        </View>
+        {p3 ? <PodiumPlayer player={p3} rank={3} onPress={onPress} /> : <View style={{ flex: 1 }} />}
+      </View>
+      <View style={styles.podiumBases}>
+        <View style={[styles.podiumBase, { height: 28, backgroundColor: "#C0C0C0" + "22", borderColor: "#C0C0C0" + "55" }]}>
+          <ThemedText style={{ fontSize: 10, color: "#C0C0C0", fontWeight: "800" }}>2</ThemedText>
+        </View>
+        <View style={[styles.podiumBase, { height: 44, backgroundColor: "#FFD700" + "22", borderColor: "#FFD700" + "55" }]}>
+          <ThemedText style={{ fontSize: 10, color: "#FFD700", fontWeight: "800" }}>1</ThemedText>
+        </View>
+        <View style={[styles.podiumBase, { height: 20, backgroundColor: "#CD7F32" + "22", borderColor: "#CD7F32" + "55" }]}>
+          <ThemedText style={{ fontSize: 10, color: "#CD7F32", fontWeight: "800" }}>3</ThemedText>
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+
 function PlayerRow({
   player,
   rank,
   onPress,
+  topMinutes = 0,
 }: {
   player: LeaderboardPlayer;
   rank: number;
   onPress: () => void;
+  topMinutes?: number;
 }) {
   const scale = useSharedValue(1);
+  const progressAnim = useSharedValue(0);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progressAnim.value * 100}%` as any,
+  }));
+
+  useEffect(() => {
+    const ratio = topMinutes > 0 ? Math.min(player.weeklyMinutes / topMinutes, 1) : 0;
+    progressAnim.value = withTiming(ratio, { duration: 900 });
+  }, [player.weeklyMinutes, topMinutes]);
+
+  const rankChange = getRankChange(player.id);
+
   return (
     <Animated.View entering={FadeInDown.delay(rank * 40).springify()} style={animStyle}>
       <Pressable
@@ -283,6 +429,15 @@ function PlayerRow({
         }}
         style={[styles.playerRow, player.isMe && styles.playerRowMe]}
       >
+        <View style={styles.rankChangeCol}>
+          {rankChange > 0 ? (
+            <Feather name="arrow-up" size={9} color={Colors.dark.primary} />
+          ) : rankChange < 0 ? (
+            <Feather name="arrow-down" size={9} color={Colors.dark.error} />
+          ) : (
+            <Feather name="minus" size={9} color={Colors.dark.textSecondary} />
+          )}
+        </View>
         <RankBadge rank={rank} />
         <View style={{ marginLeft: Spacing.md }}>
           <AvatarBubble initials={player.initials} color={player.avatarColor} size={44} isPro={player.isPro} />
@@ -304,6 +459,17 @@ function PlayerRow({
           <ThemedText style={styles.playerMeta}>
             {player.position} · {player.ageBracket}
           </ThemedText>
+          {topMinutes > 0 ? (
+            <View style={styles.playerProgressTrack}>
+              <Animated.View
+                style={[
+                  styles.playerProgressFill,
+                  { backgroundColor: player.isMe ? Colors.dark.primary : player.avatarColor + "BB" },
+                  progressStyle,
+                ]}
+              />
+            </View>
+          ) : null}
         </View>
         <View style={styles.playerStats}>
           <ThemedText style={styles.statValue}>
@@ -867,6 +1033,11 @@ export default function SocialScreen() {
   const [showAddFriend, setShowAddFriend] = useState(false);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [userCountry, setUserCountry] = useState("USA");
+  const [tabRowWidth, setTabRowWidth] = useState(0);
+
+  const challengeProgressAnim = useSharedValue(0);
+  const challengeGlowAnim = useSharedValue(0);
+  const tabIndicatorX = useSharedValue(0);
 
   const friendsKey = user ? `${FRIENDS_STORAGE_BASE_KEY}_${user.id}` : null;
   const countryKey = user ? `${COUNTRY_STORAGE_KEY}_${user.id}` : COUNTRY_STORAGE_KEY;
@@ -925,6 +1096,32 @@ export default function SocialScreen() {
   const weeklyMins = getWeeklyMinutes(entries);
   const weekSessions = getWeekSessionCount(entries);
   const challengeProgress = Math.min(weekSessions / WEEKLY_CHALLENGE.target, 1);
+
+  useEffect(() => {
+    challengeProgressAnim.value = withTiming(challengeProgress, { duration: 1000 });
+    if (challengeProgress >= 0.8) {
+      challengeGlowAnim.value = withRepeat(withTiming(1, { duration: 900 }), -1, true);
+    }
+  }, [challengeProgress]);
+
+  useEffect(() => {
+    const tabIndex = activeTab === "global" ? 0 : activeTab === "national" ? 1 : 2;
+    const tabWidth = tabRowWidth / 3;
+    tabIndicatorX.value = withSpring(tabIndex * tabWidth, { damping: 22, stiffness: 220 });
+  }, [activeTab, tabRowWidth]);
+
+  const challengeBarStyle = useAnimatedStyle(() => ({
+    width: `${challengeProgressAnim.value * 100}%` as any,
+    shadowColor: Colors.dark.accent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: interpolate(challengeGlowAnim.value, [0, 1], [0, 0.9]),
+    shadowRadius: interpolate(challengeGlowAnim.value, [0, 1], [2, 10]),
+  }));
+
+  const tabIndicatorStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: tabIndicatorX.value }],
+  }));
+
   const topSkill = getTopSkill(entries);
   const userLevel = getUserLevel(stats.totalEntries);
   const userAchievementCount = ACHIEVEMENTS.filter((a) => a.isEarned(entries, stats)).length;
@@ -1014,7 +1211,7 @@ export default function SocialScreen() {
             </View>
           </View>
           <View style={styles.progressBarTrack}>
-            <View style={[styles.progressBarFill, { width: `${challengeProgress * 100}%` }]} />
+            <Animated.View style={[styles.progressBarFill, challengeBarStyle]} />
           </View>
           <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: Spacing.sm }}>
             <ThemedText style={styles.progressLabel}>
@@ -1061,10 +1258,26 @@ export default function SocialScreen() {
         </Animated.View>
 
         {/* Tab Switcher */}
-        <Animated.View entering={FadeIn.delay(100)} style={styles.tabRow}>
+        <Animated.View
+          entering={FadeIn.delay(100)}
+          style={styles.tabRow}
+          onLayout={(e) => setTabRowWidth(e.nativeEvent.layout.width - 8)}
+        >
+          {tabRowWidth > 0 ? (
+            <Animated.View
+              style={[
+                styles.tabIndicatorSlider,
+                { width: tabRowWidth / 3 },
+                tabIndicatorStyle,
+              ]}
+            />
+          ) : null}
           <Pressable
-            style={[styles.tabBtn, activeTab === "global" && styles.tabBtnActive]}
-            onPress={() => setActiveTab("global")}
+            style={styles.tabBtn}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setActiveTab("global");
+            }}
           >
             <Feather
               name="globe"
@@ -1074,8 +1287,11 @@ export default function SocialScreen() {
             <ThemedText style={[styles.tabLabel, activeTab === "global" && styles.tabLabelActive]}>Global</ThemedText>
           </Pressable>
           <Pressable
-            style={[styles.tabBtn, activeTab === "national" && styles.tabBtnActive]}
-            onPress={() => setActiveTab("national")}
+            style={styles.tabBtn}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setActiveTab("national");
+            }}
           >
             <ThemedText style={{ fontSize: 13 }}>{countryInfo.flag}</ThemedText>
             <ThemedText style={[styles.tabLabel, activeTab === "national" && styles.tabLabelActive]}>
@@ -1083,8 +1299,11 @@ export default function SocialScreen() {
             </ThemedText>
           </Pressable>
           <Pressable
-            style={[styles.tabBtn, activeTab === "friends" && styles.tabBtnActive]}
-            onPress={() => setActiveTab("friends")}
+            style={styles.tabBtn}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setActiveTab("friends");
+            }}
           >
             <Feather
               name="users"
@@ -1155,14 +1374,23 @@ export default function SocialScreen() {
         {/* Leaderboard List */}
         <View style={styles.leaderboard}>
           {activeTab === "global" ? (
-            globalDisplayList.map(({ player, rank }) => (
-              <PlayerRow
-                key={player.id}
-                player={player}
-                rank={rank}
-                onPress={() => setSelectedPlayer(player)}
-              />
-            ))
+            <>
+              {globalDisplayList.length >= 3 ? (
+                <TopThreePodium
+                  players={globalDisplayList.slice(0, 3)}
+                  onPress={(p) => setSelectedPlayer(p)}
+                />
+              ) : null}
+              {globalDisplayList.slice(globalDisplayList.length >= 3 ? 3 : 0).map(({ player, rank }) => (
+                <PlayerRow
+                  key={player.id}
+                  player={player}
+                  rank={rank}
+                  onPress={() => setSelectedPlayer(player)}
+                  topMinutes={globalDisplayList[0]?.player.weeklyMinutes}
+                />
+              ))}
+            </>
           ) : activeTab === "national" ? (
             nationalDisplayList.length === 0 ? (
               <View style={styles.emptyFriends}>
@@ -1173,14 +1401,23 @@ export default function SocialScreen() {
                 </ThemedText>
               </View>
             ) : (
-              nationalDisplayList.map(({ player, rank }) => (
-                <PlayerRow
-                  key={player.id}
-                  player={player}
-                  rank={rank}
-                  onPress={() => setSelectedPlayer(player)}
-                />
-              ))
+              <>
+                {nationalDisplayList.length >= 3 ? (
+                  <TopThreePodium
+                    players={nationalDisplayList.slice(0, 3)}
+                    onPress={(p) => setSelectedPlayer(p)}
+                  />
+                ) : null}
+                {nationalDisplayList.slice(nationalDisplayList.length >= 3 ? 3 : 0).map(({ player, rank }) => (
+                  <PlayerRow
+                    key={player.id}
+                    player={player}
+                    rank={rank}
+                    onPress={() => setSelectedPlayer(player)}
+                    topMinutes={nationalDisplayList[0]?.player.weeklyMinutes}
+                  />
+                ))}
+              </>
             )
           ) : (
             <>
@@ -1190,6 +1427,7 @@ export default function SocialScreen() {
                   player={player}
                   rank={idx + 1}
                   onPress={() => setSelectedPlayer(player)}
+                  topMinutes={friendsWithMe[0]?.weeklyMinutes}
                 />
               ))}
               {friends.length === 0 ? (
@@ -1751,5 +1989,56 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: Colors.dark.text,
+  },
+  podiumContainer: {
+    paddingTop: Spacing.lg,
+    paddingHorizontal: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundSecondary,
+  },
+  podiumRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+  podiumBases: {
+    flexDirection: "row",
+    marginTop: Spacing.sm,
+  },
+  podiumBase: {
+    flex: 1,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+  },
+  rankChangeCol: {
+    width: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 2,
+  },
+  playerProgressTrack: {
+    height: 3,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 2,
+    marginTop: 4,
+    overflow: "hidden",
+  },
+  playerProgressFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  tabIndicatorSlider: {
+    position: "absolute",
+    top: 4,
+    left: 0,
+    bottom: 4,
+    borderRadius: BorderRadius.xs,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    zIndex: 0,
   },
 });
