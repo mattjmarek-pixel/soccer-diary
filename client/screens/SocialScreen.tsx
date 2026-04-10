@@ -1288,9 +1288,7 @@ export default function SocialScreen() {
           </View>
         </Animated.View>
 
-        {/* Tab Switcher + Leaderboard (swipeable) */}
-        <GestureDetector gesture={swipeGesture}>
-        <View>
+        {/* Tab Switcher */}
         <Animated.View
           entering={FadeIn.delay(100)}
           style={styles.tabRow}
@@ -1404,7 +1402,8 @@ export default function SocialScreen() {
           </Animated.View>
         ) : null}
 
-        {/* Leaderboard List */}
+        {/* Leaderboard List — wrapped in swipe gesture detector */}
+        <GestureDetector gesture={swipeGesture}>
         <View style={styles.leaderboard}>
           {activeTab === "global" ? (
             <>
@@ -1480,7 +1479,6 @@ export default function SocialScreen() {
               ) : null}
             </>
           )}
-        </View>
         </View>
         </GestureDetector>
       </ScrollView>
