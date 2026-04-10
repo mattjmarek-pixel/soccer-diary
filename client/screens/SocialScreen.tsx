@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   View,
   ScrollView,
@@ -27,9 +27,11 @@ import Animated, {
   withTiming,
   withRepeat,
   interpolate,
+  runOnJS,
   FadeIn,
   FadeInDown,
 } from "react-native-reanimated";
+import { GestureDetector, Gesture } from "react-native-gesture-handler";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
@@ -139,6 +141,8 @@ const SEARCH_POOL: Friend[] = [
   { id: "s5", name: "Marcus Webb", username: "m_webb", position: "Defender", weeklyMinutes: 540, totalMinutes: 9600, streak: 16, totalSessions: 177, achievementCount: 6, topSkill: "Fitness", isPro: true, avatarColor: "#3CB371", initials: "MW", age: 20, country: "USA", ageBracket: "U21" },
   { id: "s6", name: "Priya Sharma", username: "priya_s", position: "Forward", weeklyMinutes: 390, totalMinutes: 7100, streak: 6, totalSessions: 129, achievementCount: 3, topSkill: "Dribbling", isPro: false, avatarColor: "#CD853F", initials: "PS", age: 14, country: "ENG", ageBracket: "U14" },
 ];
+
+const TABS: ActiveTab[] = ["global", "national", "friends"];
 
 const WEEKLY_CHALLENGE = {
   title: "Training Blitz",
@@ -1039,6 +1043,33 @@ export default function SocialScreen() {
   const challengeGlowAnim = useSharedValue(0);
   const tabIndicatorX = useSharedValue(0);
 
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+
+  const onSwipeTab = useCallback((direction: "left" | "right") => {
+    const idx = TABS.indexOf(activeTabRef.current);
+    const next = direction === "left" ? idx + 1 : idx - 1;
+    if (next >= 0 && next < TABS.length) {
+      Haptics.selectionAsync();
+      setActiveTab(TABS[next]);
+    }
+  }, []);
+
+  const swipeGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([-30, 30])
+        .failOffsetY([-15, 15])
+        .onEnd((e) => {
+          if (e.translationX < -50) {
+            runOnJS(onSwipeTab)("left");
+          } else if (e.translationX > 50) {
+            runOnJS(onSwipeTab)("right");
+          }
+        }),
+    [onSwipeTab]
+  );
+
   const friendsKey = user ? `${FRIENDS_STORAGE_BASE_KEY}_${user.id}` : null;
   const countryKey = user ? `${COUNTRY_STORAGE_KEY}_${user.id}` : COUNTRY_STORAGE_KEY;
 
@@ -1257,7 +1288,9 @@ export default function SocialScreen() {
           </View>
         </Animated.View>
 
-        {/* Tab Switcher */}
+        {/* Tab Switcher + Leaderboard (swipeable) */}
+        <GestureDetector gesture={swipeGesture}>
+        <View>
         <Animated.View
           entering={FadeIn.delay(100)}
           style={styles.tabRow}
@@ -1448,6 +1481,8 @@ export default function SocialScreen() {
             </>
           )}
         </View>
+        </View>
+        </GestureDetector>
       </ScrollView>
 
       {selectedPlayer !== null ? (
