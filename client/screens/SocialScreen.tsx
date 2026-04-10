@@ -1075,23 +1075,6 @@ export default function SocialScreen() {
 
   const rankShareRef = useRef<View>(null);
 
-  const handleShareRanking = useCallback(async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (!isAvailable) {
-        Alert.alert("Sharing", "Sharing is not available on this device.");
-        return;
-      }
-      if (rankShareRef.current) {
-        const uri = await captureRef(rankShareRef, { format: "png", quality: 1 });
-        await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: "Share My Rankings" });
-      }
-    } catch {
-      Alert.alert("Error", "Could not share your rankings. Please try again.");
-    }
-  }, []);
-
   const friendsKey = user ? `${FRIENDS_STORAGE_BASE_KEY}_${user.id}` : null;
   const countryKey = user ? `${COUNTRY_STORAGE_KEY}_${user.id}` : COUNTRY_STORAGE_KEY;
 
@@ -1230,6 +1213,30 @@ export default function SocialScreen() {
   const myNationalRank = nationalAllPool.findIndex((p) => p.isMe) + 1;
   const totalNational = nationalAllPool.length;
 
+  const handleShareRanking = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const fallbackText = `My Soccer Diary rankings this week: #${myRankGlobal} globally, #${myNationalRank} nationally! ${weeklyMins} minutes trained.`;
+    try {
+      if (Platform.OS === "web" || !rankShareRef.current) {
+        await Share.share({ message: fallbackText });
+        return;
+      }
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        await Share.share({ message: fallbackText });
+        return;
+      }
+      const uri = await captureRef(rankShareRef, { format: "png", quality: 1 });
+      await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: "Share My Rankings" });
+    } catch {
+      try {
+        await Share.share({ message: fallbackText });
+      } catch {
+        Alert.alert("Error", "Could not share your rankings. Please try again.");
+      }
+    }
+  }, [myRankGlobal, myNationalRank, weeklyMins]);
+
   // --- Friends tab ---
   const friendsAsLeaderboard: LeaderboardPlayer[] = friends.map((f) => ({
     ...f,
@@ -1241,8 +1248,125 @@ export default function SocialScreen() {
   const showAgeBracketFilter = activeTab !== "friends";
 
   return (
-    <GestureDetector gesture={swipeGesture}>
     <View style={[styles.container, { paddingTop: headerHeight }]}>
+      <GestureDetector gesture={swipeGesture}>
+        <View>
+          {/* Tab Switcher */}
+          <Animated.View
+            entering={FadeIn.delay(100)}
+            style={styles.tabRow}
+            onLayout={(e) => setTabRowWidth(e.nativeEvent.layout.width - 8)}
+          >
+            {tabRowWidth > 0 ? (
+              <Animated.View
+                style={[
+                  styles.tabIndicatorSlider,
+                  { width: tabRowWidth / 3 },
+                  tabIndicatorStyle,
+                ]}
+              />
+            ) : null}
+            <Pressable
+              style={styles.tabBtn}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setActiveTab("global");
+              }}
+            >
+              <Feather
+                name="globe"
+                size={13}
+                color={activeTab === "global" ? Colors.dark.primary : Colors.dark.textSecondary}
+              />
+              <ThemedText style={[styles.tabLabel, activeTab === "global" && styles.tabLabelActive]}>Global</ThemedText>
+            </Pressable>
+            <Pressable
+              style={styles.tabBtn}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setActiveTab("national");
+              }}
+            >
+              <ThemedText style={{ fontSize: 13 }}>{countryInfo.flag}</ThemedText>
+              <ThemedText style={[styles.tabLabel, activeTab === "national" && styles.tabLabelActive]}>
+                National
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              style={styles.tabBtn}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setActiveTab("friends");
+              }}
+            >
+              <Feather
+                name="users"
+                size={13}
+                color={activeTab === "friends" ? Colors.dark.primary : Colors.dark.textSecondary}
+              />
+              <ThemedText style={[styles.tabLabel, activeTab === "friends" && styles.tabLabelActive]}>
+                {`Friends${friends.length > 0 ? ` (${friends.length})` : ""}`}
+              </ThemedText>
+            </Pressable>
+          </Animated.View>
+
+          {/* Country selector row (national tab) */}
+          {activeTab === "national" ? (
+            <Animated.View entering={FadeIn} style={styles.countrySelector}>
+              <ThemedText style={styles.countrySelectorLabel}>Showing rankings for:</ThemedText>
+              <Pressable style={styles.countrySelectorBtn} onPress={() => setShowCountryPicker(true)}>
+                <ThemedText style={{ fontSize: 16 }}>{countryInfo.flag}</ThemedText>
+                <ThemedText style={styles.countrySelectorName}>{countryInfo.label}</ThemedText>
+                <Feather name="chevron-down" size={14} color={Colors.dark.primary} />
+              </Pressable>
+            </Animated.View>
+          ) : null}
+
+          {/* Add friend button (friends tab) */}
+          {activeTab === "friends" ? (
+            <Animated.View entering={FadeIn} style={styles.addFriendBar}>
+              <Pressable style={styles.addFriendBarBtn} onPress={() => setShowAddFriend(true)}>
+                <Feather name="user-plus" size={14} color={Colors.dark.primary} />
+                <ThemedText style={{ color: Colors.dark.primary, fontWeight: "700", fontSize: 13, marginLeft: 6 }}>
+                  Find Players
+                </ThemedText>
+              </Pressable>
+            </Animated.View>
+          ) : null}
+
+          {/* Age Bracket Filter Chips */}
+          {showAgeBracketFilter ? (
+            <Animated.View entering={FadeIn.delay(120)}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.bracketChips}
+              >
+                {AGE_BRACKETS.map((bracket) => (
+                  <Pressable
+                    key={bracket}
+                    style={[styles.bracketChip, ageBracket === bracket && styles.bracketChipActive]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setAgeBracket(bracket);
+                    }}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.bracketChipLabel,
+                        ageBracket === bracket && styles.bracketChipLabelActive,
+                      ]}
+                    >
+                      {bracket}
+                    </ThemedText>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </Animated.View>
+          ) : null}
+        </View>
+      </GestureDetector>
+
       <ScrollView
         contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
         showsVerticalScrollIndicator={false}
@@ -1315,120 +1439,6 @@ export default function SocialScreen() {
             </View>
           </View>
         </Animated.View>
-
-        {/* Tab Switcher */}
-        <Animated.View
-          entering={FadeIn.delay(100)}
-          style={styles.tabRow}
-          onLayout={(e) => setTabRowWidth(e.nativeEvent.layout.width - 8)}
-        >
-          {tabRowWidth > 0 ? (
-            <Animated.View
-              style={[
-                styles.tabIndicatorSlider,
-                { width: tabRowWidth / 3 },
-                tabIndicatorStyle,
-              ]}
-            />
-          ) : null}
-          <Pressable
-            style={styles.tabBtn}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setActiveTab("global");
-            }}
-          >
-            <Feather
-              name="globe"
-              size={13}
-              color={activeTab === "global" ? Colors.dark.primary : Colors.dark.textSecondary}
-            />
-            <ThemedText style={[styles.tabLabel, activeTab === "global" && styles.tabLabelActive]}>Global</ThemedText>
-          </Pressable>
-          <Pressable
-            style={styles.tabBtn}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setActiveTab("national");
-            }}
-          >
-            <ThemedText style={{ fontSize: 13 }}>{countryInfo.flag}</ThemedText>
-            <ThemedText style={[styles.tabLabel, activeTab === "national" && styles.tabLabelActive]}>
-              National
-            </ThemedText>
-          </Pressable>
-          <Pressable
-            style={styles.tabBtn}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setActiveTab("friends");
-            }}
-          >
-            <Feather
-              name="users"
-              size={13}
-              color={activeTab === "friends" ? Colors.dark.primary : Colors.dark.textSecondary}
-            />
-            <ThemedText style={[styles.tabLabel, activeTab === "friends" && styles.tabLabelActive]}>
-              {`Friends${friends.length > 0 ? ` (${friends.length})` : ""}`}
-            </ThemedText>
-          </Pressable>
-        </Animated.View>
-
-        {/* Country selector row (national tab) */}
-        {activeTab === "national" ? (
-          <Animated.View entering={FadeIn} style={styles.countrySelector}>
-            <ThemedText style={styles.countrySelectorLabel}>Showing rankings for:</ThemedText>
-            <Pressable style={styles.countrySelectorBtn} onPress={() => setShowCountryPicker(true)}>
-              <ThemedText style={{ fontSize: 16 }}>{countryInfo.flag}</ThemedText>
-              <ThemedText style={styles.countrySelectorName}>{countryInfo.label}</ThemedText>
-              <Feather name="chevron-down" size={14} color={Colors.dark.primary} />
-            </Pressable>
-          </Animated.View>
-        ) : null}
-
-        {/* Add friend button (friends tab) */}
-        {activeTab === "friends" ? (
-          <Animated.View entering={FadeIn} style={styles.addFriendBar}>
-            <Pressable style={styles.addFriendBarBtn} onPress={() => setShowAddFriend(true)}>
-              <Feather name="user-plus" size={14} color={Colors.dark.primary} />
-              <ThemedText style={{ color: Colors.dark.primary, fontWeight: "700", fontSize: 13, marginLeft: 6 }}>
-                Find Players
-              </ThemedText>
-            </Pressable>
-          </Animated.View>
-        ) : null}
-
-        {/* Age Bracket Filter Chips */}
-        {showAgeBracketFilter ? (
-          <Animated.View entering={FadeIn.delay(120)}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.bracketChips}
-            >
-              {AGE_BRACKETS.map((bracket) => (
-                <Pressable
-                  key={bracket}
-                  style={[styles.bracketChip, ageBracket === bracket && styles.bracketChipActive]}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setAgeBracket(bracket);
-                  }}
-                >
-                  <ThemedText
-                    style={[
-                      styles.bracketChipLabel,
-                      ageBracket === bracket && styles.bracketChipLabelActive,
-                    ]}
-                  >
-                    {bracket}
-                  </ThemedText>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </Animated.View>
-        ) : null}
 
         {/* Leaderboard List */}
         <View style={styles.leaderboard}>
@@ -1512,6 +1522,7 @@ export default function SocialScreen() {
       <View
         style={styles.rankShareOffScreen}
         collapsable={false}
+        pointerEvents="none"
         ref={rankShareRef}
       >
         <View style={styles.rankShareCard}>
@@ -1580,7 +1591,6 @@ export default function SocialScreen() {
         onSelect={handleSelectCountry}
       />
     </View>
-    </GestureDetector>
   );
 }
 
@@ -1683,8 +1693,10 @@ const styles = StyleSheet.create({
   },
   rankShareOffScreen: {
     position: "absolute",
-    left: -1200,
-    top: -1200,
+    left: 0,
+    top: 0,
+    opacity: 0,
+    pointerEvents: "none",
   },
   rankShareCard: {
     width: 340,

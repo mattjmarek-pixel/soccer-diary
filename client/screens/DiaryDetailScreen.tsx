@@ -6,6 +6,7 @@ import {
   Alert,
   Pressable,
   Platform,
+  Share,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -56,29 +57,34 @@ export default function DiaryDetailScreen() {
 
   const entry = getEntry(route.params.entryId);
 
+  const shareText = entry
+    ? `${moodLabels[(entry.mood ?? 1) - 1]} training session — ${entry.duration} min${entry.skills && entry.skills.length > 0 ? ` of ${entry.skills.map((s: { category: string }) => s.category).join(", ")}` : ""}. Logged with Soccer Diary.`
+    : "";
+
   const handleShare = async () => {
     if (!entry) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
     try {
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (!isAvailable) {
-        Alert.alert("Sharing", "Sharing is not available on this device.");
+      if (Platform.OS === "web" || !shareCardRef.current) {
+        await Share.share({ message: shareText });
         return;
       }
-
-      if (shareCardRef.current) {
-        const uri = await captureRef(shareCardRef, {
-          format: "png",
-          quality: 1,
-        });
-        await Sharing.shareAsync(uri, {
-          mimeType: "image/png",
-          dialogTitle: "Share Training Session",
-        });
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        await Share.share({ message: shareText });
+        return;
       }
-    } catch (error) {
-      Alert.alert("Error", "Failed to share. Please try again.");
+      const uri = await captureRef(shareCardRef, { format: "png", quality: 1 });
+      await Sharing.shareAsync(uri, {
+        mimeType: "image/png",
+        dialogTitle: "Share Training Session",
+      });
+    } catch {
+      try {
+        await Share.share({ message: shareText });
+      } catch {
+        Alert.alert("Error", "Failed to share. Please try again.");
+      }
     }
   };
 
@@ -215,7 +221,7 @@ export default function DiaryDetailScreen() {
         </View>
       ) : null}
 
-      <View style={styles.shareCardWrapper} collapsable={false} ref={shareCardRef}>
+      <View style={styles.shareCardWrapper} collapsable={false} pointerEvents="none" ref={shareCardRef}>
         <View style={styles.shareCard}>
           <View style={styles.shareHeader}>
             <Feather name="activity" size={16} color={Colors.dark.primary} />
@@ -349,8 +355,10 @@ const styles = StyleSheet.create({
   },
   shareCardWrapper: {
     position: "absolute",
-    left: -1000,
-    top: -1000,
+    left: 0,
+    top: 0,
+    opacity: 0,
+    pointerEvents: "none",
   },
   shareCard: {
     width: 340,

@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
-import { View, ScrollView, StyleSheet, Pressable, Alert } from "react-native";
+import { View, ScrollView, StyleSheet, Pressable, Alert, Platform, Share } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
@@ -46,23 +46,31 @@ export default function AchievementsScreen() {
   useEffect(() => {
     if (!sharingBadge) return;
     const timer = setTimeout(async () => {
+      const fallbackText = `I just earned the "${sharingBadge.title}" badge on Soccer Diary! ${sharingBadge.description}`;
       try {
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (!isAvailable) {
-          Alert.alert("Sharing", "Sharing is not available on this device.");
+        if (Platform.OS === "web" || !badgeShareRef.current) {
+          await Share.share({ message: fallbackText });
           setSharingBadge(null);
           return;
         }
-        if (badgeShareRef.current) {
-          const uri = await captureRef(badgeShareRef, { format: "png", quality: 1 });
-          await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: "Share Badge" });
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (!isAvailable) {
+          await Share.share({ message: fallbackText });
+          setSharingBadge(null);
+          return;
         }
+        const uri = await captureRef(badgeShareRef, { format: "png", quality: 1 });
+        await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: "Share Badge" });
       } catch {
-        Alert.alert("Error", "Could not share this badge. Please try again.");
+        try {
+          await Share.share({ message: fallbackText });
+        } catch {
+          Alert.alert("Error", "Could not share this badge. Please try again.");
+        }
       } finally {
         setSharingBadge(null);
       }
-    }, 120);
+    }, 200);
     return () => clearTimeout(timer);
   }, [sharingBadge]);
 
@@ -134,7 +142,7 @@ export default function AchievementsScreen() {
       </ScrollView>
 
       {sharingBadge ? (
-        <View style={styles.offScreenCapture} collapsable={false} ref={badgeShareRef}>
+        <View style={styles.offScreenCapture} collapsable={false} pointerEvents="none" ref={badgeShareRef}>
           <View style={styles.shareCard}>
             <View style={styles.shareCardHeader}>
               <Feather name="activity" size={16} color={Colors.dark.primary} />
@@ -330,8 +338,10 @@ const styles = StyleSheet.create({
   },
   offScreenCapture: {
     position: "absolute",
-    left: -1000,
-    top: -1000,
+    left: 0,
+    top: 0,
+    opacity: 0,
+    pointerEvents: "none",
   },
   shareCard: {
     width: 340,
