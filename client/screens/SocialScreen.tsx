@@ -1219,6 +1219,7 @@ export default function SocialScreen() {
   const showAgeBracketFilter = activeTab !== "friends";
 
   return (
+    <GestureDetector gesture={swipeGesture}>
     <View style={[styles.container, { paddingTop: headerHeight }]}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
@@ -1402,8 +1403,7 @@ export default function SocialScreen() {
           </Animated.View>
         ) : null}
 
-        {/* Leaderboard List — wrapped in swipe gesture detector */}
-        <GestureDetector gesture={swipeGesture}>
+        {/* Leaderboard List */}
         <View style={styles.leaderboard}>
           {activeTab === "global" ? (
             <>
@@ -1480,7 +1480,6 @@ export default function SocialScreen() {
             </>
           )}
         </View>
-        </GestureDetector>
       </ScrollView>
 
       {selectedPlayer !== null ? (
@@ -1499,6 +1498,7 @@ export default function SocialScreen() {
         onSelect={handleSelectCountry}
       />
     </View>
+    </GestureDetector>
   );
 }
 
