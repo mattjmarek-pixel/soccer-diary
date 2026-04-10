@@ -170,46 +170,55 @@ export default function AchievementsScreen() {
         </Animated.View>
 
         {rows.map((row, idx) => (
-          <Animated.View
+          <View
             key={`row-${idx}`}
-            entering={FadeInDown.delay(80 + idx * 60).springify()}
             style={styles.row}
           >
-            <BadgeCard
-              title={row.left.title}
-              description={row.left.description}
-              icon={row.left.icon}
-              color={row.left.color}
-              earned={row.left.earned}
-              onShare={() =>
-                handleShareBadge({
-                  title: row.left.title,
-                  description: row.left.description,
-                  icon: row.left.icon,
-                  color: row.left.color,
-                })
-              }
-            />
-            {row.right ? (
+            <Animated.View
+              entering={FadeInDown.delay(80 + idx * 120).springify()}
+              style={styles.badgeWrapper}
+            >
               <BadgeCard
-                title={row.right.title}
-                description={row.right.description}
-                icon={row.right.icon}
-                color={row.right.color}
-                earned={row.right.earned}
+                title={row.left.title}
+                description={row.left.description}
+                icon={row.left.icon}
+                color={row.left.color}
+                earned={row.left.earned}
                 onShare={() =>
                   handleShareBadge({
-                    title: row.right!.title,
-                    description: row.right!.description,
-                    icon: row.right!.icon,
-                    color: row.right!.color,
+                    title: row.left.title,
+                    description: row.left.description,
+                    icon: row.left.icon,
+                    color: row.left.color,
                   })
                 }
               />
+            </Animated.View>
+            {row.right ? (
+              <Animated.View
+                entering={FadeInDown.delay(80 + idx * 120 + 60).springify()}
+                style={styles.badgeWrapper}
+              >
+                <BadgeCard
+                  title={row.right.title}
+                  description={row.right.description}
+                  icon={row.right.icon}
+                  color={row.right.color}
+                  earned={row.right.earned}
+                  onShare={() =>
+                    handleShareBadge({
+                      title: row.right!.title,
+                      description: row.right!.description,
+                      icon: row.right!.icon,
+                      color: row.right!.color,
+                    })
+                  }
+                />
+              </Animated.View>
             ) : (
               <View style={styles.badgePlaceholder} />
             )}
-          </Animated.View>
+          </View>
         ))}
       </ScrollView>
 
@@ -371,8 +380,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: Spacing.md,
   },
-  badge: {
+  badgeWrapper: {
     width: "48%",
+  },
+  badge: {
+    flex: 1,
     borderRadius: BorderRadius.sm,
     padding: Spacing.lg,
     alignItems: "center",
