@@ -1,10 +1,16 @@
-import React, { useMemo, useEffect, useRef } from "react";
-import { View, ScrollView, StyleSheet, Dimensions, Animated as RNAnimated } from "react-native";
+import React, { useMemo, useEffect, useState } from "react";
+import { View, ScrollView, StyleSheet, Dimensions, LayoutChangeEvent } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import Svg, { Line, Circle, Polyline, Rect, Text as SvgText } from "react-native-svg";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, {
+  FadeInDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withSpring,
+} from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
@@ -84,22 +90,26 @@ const sectionHeaderStyles = StyleSheet.create({
 });
 
 function AnimatedSkillBar({ cat, count, max, index }: { cat: string; count: number; max: number; index: number }) {
-  const progress = useRef(new RNAnimated.Value(0)).current;
   const color = SKILL_COLORS[cat] || Colors.dark.primary;
   const fraction = max > 0 ? count / max : 0;
+  const [trackWidth, setTrackWidth] = useState(0);
+  const progress = useSharedValue(0);
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    setTrackWidth(e.nativeEvent.layout.width);
+  };
 
   useEffect(() => {
-    const delay = index * 80;
-    const timer = setTimeout(() => {
-      RNAnimated.spring(progress, {
-        toValue: fraction,
-        useNativeDriver: false,
-        tension: 60,
-        friction: 10,
-      }).start();
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [fraction]);
+    if (trackWidth === 0) return;
+    progress.value = withDelay(
+      index * 80,
+      withSpring(fraction * trackWidth, { damping: 14, stiffness: 90 })
+    );
+  }, [fraction, trackWidth]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: progress.value,
+  }));
 
   return (
     <View style={skillBarStyles.row}>
@@ -107,18 +117,9 @@ function AnimatedSkillBar({ cat, count, max, index }: { cat: string; count: numb
         <View style={[skillBarStyles.dot, { backgroundColor: color }]} />
         <ThemedText style={skillBarStyles.label}>{cat}</ThemedText>
       </View>
-      <View style={skillBarStyles.barTrack}>
-        <RNAnimated.View
-          style={[
-            skillBarStyles.barFill,
-            {
-              backgroundColor: color,
-              width: progress.interpolate({
-                inputRange: [0, 1],
-                outputRange: ["0%", "100%"],
-              }),
-            },
-          ]}
+      <View style={skillBarStyles.barTrack} onLayout={handleLayout}>
+        <Animated.View
+          style={[skillBarStyles.barFill, { backgroundColor: color }, fillStyle]}
         />
       </View>
       <ThemedText style={skillBarStyles.count}>{count}</ThemedText>
