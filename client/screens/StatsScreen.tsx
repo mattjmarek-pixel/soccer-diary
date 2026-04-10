@@ -1,14 +1,16 @@
-import React, { useMemo } from "react";
-import { View, ScrollView, StyleSheet, Dimensions } from "react-native";
+import React, { useMemo, useEffect, useRef } from "react";
+import { View, ScrollView, StyleSheet, Dimensions, Animated as RNAnimated } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { Feather } from "@expo/vector-icons";
 import Svg, { Line, Circle, Polyline, Rect, Text as SvgText } from "react-native-svg";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { StatCard } from "@/components/StatCard";
 import { CalendarHeatmap } from "@/components/CalendarHeatmap";
-import { Colors, Spacing, MoodColors, SkillCategories } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, MoodColors, SkillCategories } from "@/constants/theme";
 import { useDiary } from "@/contexts/DiaryContext";
 
 const CHART_HEIGHT = 200;
@@ -17,6 +19,15 @@ const PADDING_LEFT = 30;
 const PADDING_RIGHT = 10;
 const PADDING_TOP = 10;
 const PADDING_BOTTOM = 30;
+
+const SKILL_COLORS: Record<string, string> = {
+  Dribbling: "#00E676",
+  Shooting: "#FF6B6B",
+  Passing: "#FFD600",
+  "First Touch": "#9C27B0",
+  Fitness: "#FF9800",
+  Tactics: "#2196F3",
+};
 
 const formatMinutes = (minutes: number): string => {
   if (minutes < 60) return `${minutes}m`;
@@ -35,6 +46,127 @@ const getLast14Days = () => {
   }
   return days;
 };
+
+function SectionHeader({ icon, title }: { icon: keyof typeof Feather.glyphMap; title: string }) {
+  return (
+    <View style={sectionHeaderStyles.container}>
+      <View style={sectionHeaderStyles.iconWrap}>
+        <Feather name={icon} size={14} color={Colors.dark.primary} />
+      </View>
+      <ThemedText style={sectionHeaderStyles.title}>{title}</ThemedText>
+    </View>
+  );
+}
+
+const sectionHeaderStyles = StyleSheet.create({
+  container: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  iconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+});
+
+function AnimatedSkillBar({ cat, count, max, index }: { cat: string; count: number; max: number; index: number }) {
+  const progress = useRef(new RNAnimated.Value(0)).current;
+  const color = SKILL_COLORS[cat] || Colors.dark.primary;
+  const fraction = max > 0 ? count / max : 0;
+
+  useEffect(() => {
+    const delay = index * 80;
+    const timer = setTimeout(() => {
+      RNAnimated.spring(progress, {
+        toValue: fraction,
+        useNativeDriver: false,
+        tension: 60,
+        friction: 10,
+      }).start();
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [fraction]);
+
+  return (
+    <View style={skillBarStyles.row}>
+      <View style={skillBarStyles.labelWrap}>
+        <View style={[skillBarStyles.dot, { backgroundColor: color }]} />
+        <ThemedText style={skillBarStyles.label}>{cat}</ThemedText>
+      </View>
+      <View style={skillBarStyles.barTrack}>
+        <RNAnimated.View
+          style={[
+            skillBarStyles.barFill,
+            {
+              backgroundColor: color,
+              width: progress.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["0%", "100%"],
+              }),
+            },
+          ]}
+        />
+      </View>
+      <ThemedText style={skillBarStyles.count}>{count}</ThemedText>
+    </View>
+  );
+}
+
+const skillBarStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  labelWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: 100,
+    gap: Spacing.xs,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  label: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+  barTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 4,
+    overflow: "hidden",
+    marginHorizontal: Spacing.sm,
+  },
+  barFill: {
+    height: 8,
+    borderRadius: 4,
+  },
+  count: {
+    width: 24,
+    textAlign: "right",
+    fontSize: 13,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+});
 
 export default function StatsScreen() {
   const headerHeight = useHeaderHeight();
@@ -136,7 +268,7 @@ export default function StatsScreen() {
       ]}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.statsRow}>
+      <Animated.View entering={FadeInDown.delay(0).springify()} style={styles.statsRow}>
         <StatCard
           icon="book-open"
           value={stats.totalEntries}
@@ -155,16 +287,87 @@ export default function StatsScreen() {
           label="Streak"
           color="#FF6B6B"
         />
-      </View>
+      </Animated.View>
 
-      <Card elevation={2} style={styles.chartCard}>
-        <ThemedText type="heading" style={styles.chartTitle}>Mood Trend</ThemedText>
-        <Svg width={chartWidth} height={CHART_HEIGHT}>
-          {[1, 2, 3, 4, 5].map((level) => {
-            const y = PADDING_TOP + drawableHeight - ((level - 1) / 4) * drawableHeight;
-            return (
-              <React.Fragment key={`grid-${level}`}>
+      <Animated.View entering={FadeInDown.delay(80).springify()}>
+        <SectionHeader icon="activity" title="Mood Trend" />
+        <Card elevation={2} style={styles.chartCard}>
+          <Svg width={chartWidth} height={CHART_HEIGHT}>
+            {[1, 2, 3, 4, 5].map((level) => {
+              const y = PADDING_TOP + drawableHeight - ((level - 1) / 4) * drawableHeight;
+              return (
+                <React.Fragment key={`grid-${level}`}>
+                  <Line
+                    x1={PADDING_LEFT}
+                    y1={y}
+                    x2={chartWidth - PADDING_RIGHT}
+                    y2={y}
+                    stroke={Colors.dark.backgroundSecondary}
+                    strokeWidth={1}
+                  />
+                  <SvgText
+                    x={PADDING_LEFT - 8}
+                    y={y + 4}
+                    fontSize={10}
+                    fill={Colors.dark.textSecondary}
+                    textAnchor="end"
+                  >
+                    {level}
+                  </SvgText>
+                </React.Fragment>
+              );
+            })}
+            {moodData.map((d, i) => {
+              if (i % 3 !== 0) return null;
+              const x = PADDING_LEFT + (i / (moodData.length - 1)) * drawableWidth;
+              const dateLabel = new Date(d.date).getDate().toString();
+              return (
+                <SvgText
+                  key={`xlabel-${i}`}
+                  x={x}
+                  y={CHART_HEIGHT - 5}
+                  fontSize={10}
+                  fill={Colors.dark.textSecondary}
+                  textAnchor="middle"
+                >
+                  {dateLabel}
+                </SvgText>
+              );
+            })}
+            {polylinePoints.length > 0 ? (
+              <Polyline
+                points={polylinePoints}
+                fill="none"
+                stroke={Colors.dark.primary}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+            ) : null}
+            {moodPoints.map((p, i) =>
+              p !== null ? (
+                <Circle
+                  key={`dot-${i}`}
+                  cx={p.x}
+                  cy={p.y}
+                  r={5}
+                  fill={MoodColors[p.mood as keyof typeof MoodColors] || Colors.dark.primary}
+                />
+              ) : null
+            )}
+          </Svg>
+        </Card>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(160).springify()}>
+        <SectionHeader icon="bar-chart-2" title="Training Duration" />
+        <Card elevation={2} style={styles.chartCard}>
+          <Svg width={chartWidth} height={BAR_CHART_HEIGHT}>
+            {[0, 0.25, 0.5, 0.75, 1].map((frac, idx) => {
+              const y = PADDING_TOP + barDrawableHeight - frac * barDrawableHeight;
+              return (
                 <Line
+                  key={`bgrid-${idx}`}
                   x1={PADDING_LEFT}
                   y1={y}
                   x2={chartWidth - PADDING_RIGHT}
@@ -172,145 +375,72 @@ export default function StatsScreen() {
                   stroke={Colors.dark.backgroundSecondary}
                   strokeWidth={1}
                 />
-                <SvgText
-                  x={PADDING_LEFT - 8}
-                  y={y + 4}
-                  fontSize={10}
-                  fill={Colors.dark.textSecondary}
-                  textAnchor="end"
-                >
-                  {level}
-                </SvgText>
-              </React.Fragment>
-            );
-          })}
-          {moodData.map((d, i) => {
-            if (i % 3 !== 0) return null;
-            const x = PADDING_LEFT + (i / (moodData.length - 1)) * drawableWidth;
-            const dateLabel = new Date(d.date).getDate().toString();
-            return (
-              <SvgText
-                key={`xlabel-${i}`}
-                x={x}
-                y={CHART_HEIGHT - 5}
-                fontSize={10}
-                fill={Colors.dark.textSecondary}
-                textAnchor="middle"
-              >
-                {dateLabel}
-              </SvgText>
-            );
-          })}
-          {polylinePoints.length > 0 ? (
-            <Polyline
-              points={polylinePoints}
-              fill="none"
-              stroke={Colors.dark.primary}
-              strokeWidth={2}
-              strokeLinejoin="round"
-              strokeLinecap="round"
+              );
+            })}
+            {durationData.map((d, i) => {
+              const barHeight = (d.duration / maxDuration) * barDrawableHeight;
+              const x = PADDING_LEFT + (i / 14) * drawableWidth + 2;
+              const y = PADDING_TOP + barDrawableHeight - barHeight;
+              return (
+                <React.Fragment key={`bar-${i}`}>
+                  <Rect
+                    x={x}
+                    y={y}
+                    width={barWidth}
+                    height={barHeight}
+                    rx={2}
+                    fill={Colors.dark.primary + "99"}
+                  />
+                  {d.duration > 0 ? (
+                    <SvgText
+                      x={x + barWidth / 2}
+                      y={y - 4}
+                      fontSize={8}
+                      fill={Colors.dark.textSecondary}
+                      textAnchor="middle"
+                    >
+                      {d.duration}
+                    </SvgText>
+                  ) : null}
+                  {i % 3 === 0 ? (
+                    <SvgText
+                      x={x + barWidth / 2}
+                      y={BAR_CHART_HEIGHT - 5}
+                      fontSize={10}
+                      fill={Colors.dark.textSecondary}
+                      textAnchor="middle"
+                    >
+                      {new Date(d.date).getDate()}
+                    </SvgText>
+                  ) : null}
+                </React.Fragment>
+              );
+            })}
+          </Svg>
+        </Card>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(240).springify()}>
+        <SectionHeader icon="target" title="Skills Focus" />
+        <Card elevation={2} style={styles.chartCard}>
+          {SkillCategories.map((cat, i) => (
+            <AnimatedSkillBar
+              key={cat}
+              cat={cat}
+              count={skillCounts[cat]}
+              max={maxSkillCount}
+              index={i}
             />
-          ) : null}
-          {moodPoints.map((p, i) =>
-            p !== null ? (
-              <Circle
-                key={`dot-${i}`}
-                cx={p.x}
-                cy={p.y}
-                r={5}
-                fill={MoodColors[p.mood as keyof typeof MoodColors] || Colors.dark.primary}
-              />
-            ) : null
-          )}
-        </Svg>
-      </Card>
+          ))}
+        </Card>
+      </Animated.View>
 
-      <Card elevation={2} style={styles.chartCard}>
-        <ThemedText type="heading" style={styles.chartTitle}>Training Duration</ThemedText>
-        <Svg width={chartWidth} height={BAR_CHART_HEIGHT}>
-          {[0, 0.25, 0.5, 0.75, 1].map((frac, idx) => {
-            const y = PADDING_TOP + barDrawableHeight - frac * barDrawableHeight;
-            return (
-              <Line
-                key={`bgrid-${idx}`}
-                x1={PADDING_LEFT}
-                y1={y}
-                x2={chartWidth - PADDING_RIGHT}
-                y2={y}
-                stroke={Colors.dark.backgroundSecondary}
-                strokeWidth={1}
-              />
-            );
-          })}
-          {durationData.map((d, i) => {
-            const barHeight = (d.duration / maxDuration) * barDrawableHeight;
-            const x = PADDING_LEFT + (i / 14) * drawableWidth + 2;
-            const y = PADDING_TOP + barDrawableHeight - barHeight;
-            return (
-              <React.Fragment key={`bar-${i}`}>
-                <Rect
-                  x={x}
-                  y={y}
-                  width={barWidth}
-                  height={barHeight}
-                  rx={2}
-                  fill={Colors.dark.primary + "99"}
-                />
-                {d.duration > 0 ? (
-                  <SvgText
-                    x={x + barWidth / 2}
-                    y={y - 4}
-                    fontSize={8}
-                    fill={Colors.dark.textSecondary}
-                    textAnchor="middle"
-                  >
-                    {d.duration}
-                  </SvgText>
-                ) : null}
-                {i % 3 === 0 ? (
-                  <SvgText
-                    x={x + barWidth / 2}
-                    y={BAR_CHART_HEIGHT - 5}
-                    fontSize={10}
-                    fill={Colors.dark.textSecondary}
-                    textAnchor="middle"
-                  >
-                    {new Date(d.date).getDate()}
-                  </SvgText>
-                ) : null}
-              </React.Fragment>
-            );
-          })}
-        </Svg>
-      </Card>
-
-      <Card elevation={2} style={styles.chartCard}>
-        <ThemedText type="heading" style={styles.chartTitle}>Skills Focus</ThemedText>
-        {SkillCategories.map((cat) => (
-          <View key={cat} style={styles.skillRow}>
-            <ThemedText type="small" style={styles.skillLabel}>{cat}</ThemedText>
-            <View style={styles.skillBarContainer}>
-              <View
-                style={[
-                  styles.skillBar,
-                  {
-                    width: `${(skillCounts[cat] / maxSkillCount) * 100}%`,
-                    backgroundColor: Colors.dark.primary,
-                  },
-                ]}
-              />
-            </View>
-            <ThemedText type="small" style={styles.skillCount}>
-              {skillCounts[cat]}
-            </ThemedText>
-          </View>
-        ))}
-      </Card>
-
-      <Card elevation={2} style={styles.chartCard}>
-        <ThemedText type="heading" style={styles.chartTitle}>Activity</ThemedText>
-        <CalendarHeatmap entries={entries} weeks={12} />
-      </Card>
+      <Animated.View entering={FadeInDown.delay(320).springify()}>
+        <SectionHeader icon="grid" title="Activity Heatmap" />
+        <Card elevation={2} style={styles.chartCard}>
+          <CalendarHeatmap entries={entries} weeks={12} />
+        </Card>
+      </Animated.View>
     </ScrollView>
   );
 }
@@ -329,35 +459,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   chartCard: {
-    marginBottom: Spacing.lg,
-  },
-  chartTitle: {
-    marginBottom: Spacing.md,
-  },
-  skillRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: Spacing.md,
-  },
-  skillLabel: {
-    width: 80,
-    color: Colors.dark.textSecondary,
-  },
-  skillBarContainer: {
-    flex: 1,
-    height: 12,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: 6,
-    marginHorizontal: Spacing.sm,
-    overflow: "hidden",
-  },
-  skillBar: {
-    height: 12,
-    borderRadius: 6,
-  },
-  skillCount: {
-    width: 30,
-    textAlign: "right",
-    color: Colors.dark.text,
+    marginBottom: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "22",
   },
 });

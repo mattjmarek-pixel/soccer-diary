@@ -1,11 +1,12 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
-import { View, ScrollView, StyleSheet, Pressable, Alert, Platform, Share } from "react-native";
+import { View, ScrollView, StyleSheet, Pressable, Alert, Platform, Share, Animated as RNAnimated } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import * as Sharing from "expo-sharing";
 import * as Haptics from "expo-haptics";
 import { captureRef } from "react-native-view-shot";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
@@ -19,6 +20,69 @@ type SharableBadge = {
   icon: string;
   color: string;
 };
+
+function CounterProgressBar({ earned, total }: { earned: number; total: number }) {
+  const progress = useRef(new RNAnimated.Value(0)).current;
+  const fraction = total > 0 ? earned / total : 0;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      RNAnimated.spring(progress, {
+        toValue: fraction,
+        useNativeDriver: false,
+        tension: 50,
+        friction: 10,
+      }).start();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [fraction]);
+
+  return (
+    <View style={counterStyles.container}>
+      <View style={counterStyles.track}>
+        <RNAnimated.View
+          style={[
+            counterStyles.fill,
+            {
+              width: progress.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["0%", "100%"],
+              }),
+            },
+          ]}
+        />
+      </View>
+      <ThemedText style={counterStyles.label}>
+        {earned} of {total} badges earned
+      </ThemedText>
+    </View>
+  );
+}
+
+const counterStyles = StyleSheet.create({
+  container: {
+    width: "80%",
+    alignItems: "center",
+    marginTop: Spacing.md,
+  },
+  track: {
+    width: "100%",
+    height: 6,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 3,
+    overflow: "hidden",
+    marginBottom: Spacing.sm,
+  },
+  fill: {
+    height: 6,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 3,
+  },
+  label: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+});
 
 export default function AchievementsScreen() {
   const headerHeight = useHeaderHeight();
@@ -92,17 +156,25 @@ export default function AchievementsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.counterContainer}>
+        <Animated.View entering={FadeInDown.delay(0).springify()} style={styles.counterContainer}>
           <ThemedText type="display" style={styles.counterValue}>
             {earnedCount}
           </ThemedText>
-          <ThemedText type="body" style={styles.counterLabel}>
-            of {ACHIEVEMENTS.length} earned
+          <ThemedText type="h4" style={styles.counterTotal}>
+            / {ACHIEVEMENTS.length}
           </ThemedText>
-        </View>
+          <ThemedText type="small" style={styles.counterSubtitle}>
+            badges earned
+          </ThemedText>
+          <CounterProgressBar earned={earnedCount} total={ACHIEVEMENTS.length} />
+        </Animated.View>
 
         {rows.map((row, idx) => (
-          <View key={`row-${idx}`} style={styles.row}>
+          <Animated.View
+            key={`row-${idx}`}
+            entering={FadeInDown.delay(80 + idx * 60).springify()}
+            style={styles.row}
+          >
             <BadgeCard
               title={row.left.title}
               description={row.left.description}
@@ -135,9 +207,9 @@ export default function AchievementsScreen() {
                 }
               />
             ) : (
-              <View style={styles.badge} />
+              <View style={styles.badgePlaceholder} />
             )}
-          </View>
+          </Animated.View>
         ))}
       </ScrollView>
 
@@ -208,7 +280,9 @@ function BadgeCard({
           backgroundColor: earned
             ? Colors.dark.backgroundSecondary
             : Colors.dark.backgroundDefault,
-          opacity: earned ? 1 : 0.6,
+          opacity: earned ? 1 : 0.55,
+          borderWidth: 1,
+          borderColor: earned ? color + "55" : Colors.dark.backgroundTertiary,
         },
       ]}
     >
@@ -272,12 +346,24 @@ const styles = StyleSheet.create({
   },
   counterContainer: {
     alignItems: "center",
+    marginBottom: Spacing["3xl"],
+    paddingVertical: Spacing.xl,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "22",
     marginBottom: Spacing["2xl"],
   },
   counterValue: {
     color: Colors.dark.primary,
+    fontSize: 52,
+    fontFamily: "Montserrat_700Bold",
   },
-  counterLabel: {
+  counterTotal: {
+    color: Colors.dark.textSecondary,
+    marginTop: -Spacing.sm,
+  },
+  counterSubtitle: {
     color: Colors.dark.textSecondary,
     marginTop: Spacing.xs,
   },
@@ -294,6 +380,9 @@ const styles = StyleSheet.create({
     position: "relative",
     minHeight: 160,
     justifyContent: "center",
+  },
+  badgePlaceholder: {
+    width: "48%",
   },
   checkBadge: {
     position: "absolute",

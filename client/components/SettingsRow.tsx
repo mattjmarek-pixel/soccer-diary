@@ -17,6 +17,7 @@ interface SettingsRowProps {
   onPress: () => void;
   destructive?: boolean;
   showChevron?: boolean;
+  iconColor?: string;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -27,6 +28,7 @@ export function SettingsRow({
   onPress,
   destructive = false,
   showChevron = true,
+  iconColor,
 }: SettingsRowProps) {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
@@ -51,7 +53,9 @@ export function SettingsRow({
     onPress();
   };
 
-  const iconColor = destructive ? Colors.dark.error : Colors.dark.text;
+  const resolvedIconColor = destructive
+    ? Colors.dark.error
+    : iconColor || Colors.dark.primary;
   const textColor = destructive ? Colors.dark.error : Colors.dark.text;
 
   return (
@@ -62,13 +66,15 @@ export function SettingsRow({
       style={[styles.container, animatedStyle]}
     >
       <View style={styles.left}>
-        <Feather name={icon} size={20} color={iconColor} style={styles.icon} />
+        <View style={[styles.iconWrap, { backgroundColor: resolvedIconColor + "20" }]}>
+          <Feather name={icon} size={18} color={resolvedIconColor} />
+        </View>
         <ThemedText type="body" style={{ color: textColor }}>
           {label}
         </ThemedText>
       </View>
       {showChevron ? (
-        <Feather name="chevron-right" size={20} color={Colors.dark.textSecondary} />
+        <Feather name="chevron-right" size={18} color={Colors.dark.textSecondary} />
       ) : null}
     </AnimatedPressable>
   );
@@ -80,15 +86,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: Colors.dark.backgroundDefault,
-    padding: Spacing.lg,
+    padding: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "18",
   },
   left: {
     flexDirection: "row",
     alignItems: "center",
+    gap: Spacing.md,
   },
-  icon: {
-    marginRight: Spacing.md,
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, Pressable, Image } from "react-native";
+import { View, StyleSheet, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Animated, {
   useAnimatedStyle,
@@ -22,26 +22,13 @@ interface DiaryEntryCardProps {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-function MoodIndicator({ mood }: { mood: number }) {
-  return (
-    <View style={styles.moodContainer}>
-      {[1, 2, 3, 4, 5].map((level) => (
-        <View
-          key={level}
-          style={[
-            styles.moodDot,
-            {
-              backgroundColor:
-                level <= mood
-                  ? MoodColors[mood as keyof typeof MoodColors]
-                  : Colors.dark.backgroundTertiary,
-            },
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
+const MOOD_LABELS: Record<number, string> = {
+  1: "Rough",
+  2: "Low",
+  3: "Okay",
+  4: "Good",
+  5: "Great",
+};
 
 export function DiaryEntryCard({
   date,
@@ -72,6 +59,9 @@ export function DiaryEntryCard({
     day: "numeric",
   });
 
+  const moodColor = MoodColors[mood as keyof typeof MoodColors] || Colors.dark.primary;
+  const moodLabel = MOOD_LABELS[mood] || "Okay";
+
   return (
     <AnimatedPressable
       onPress={onPress}
@@ -79,47 +69,55 @@ export function DiaryEntryCard({
       onPressOut={handlePressOut}
       style={[styles.container, animatedStyle]}
     >
-      <View style={styles.header}>
-        <ThemedText type="heading" style={styles.date}>
-          {formattedDate}
-        </ThemedText>
-        <MoodIndicator mood={mood} />
-      </View>
+      <View style={[styles.moodAccentBar, { backgroundColor: moodColor }]} />
 
-      <View style={styles.meta}>
-        <View style={styles.metaItem}>
-          <Feather name="clock" size={14} color={Colors.dark.textSecondary} />
-          <ThemedText type="small" style={styles.metaText}>
-            {duration} min
+      <View style={styles.inner}>
+        <View style={styles.header}>
+          <ThemedText type="heading" style={styles.date}>
+            {formattedDate}
           </ThemedText>
-        </View>
-        {videoUri ? (
-          <View style={styles.metaItem}>
-            <Feather name="video" size={14} color={Colors.dark.primary} />
-            <ThemedText type="small" style={[styles.metaText, { color: Colors.dark.primary }]}>
-              Video
+          <View style={[styles.moodBadge, { backgroundColor: moodColor + "20", borderColor: moodColor + "44" }]}>
+            <ThemedText style={[styles.moodBadgeText, { color: moodColor }]}>
+              {moodLabel}
             </ThemedText>
+          </View>
+        </View>
+
+        <View style={styles.meta}>
+          <View style={styles.metaItem}>
+            <Feather name="clock" size={13} color={Colors.dark.textSecondary} />
+            <ThemedText type="small" style={styles.metaText}>
+              {duration} min
+            </ThemedText>
+          </View>
+          {videoUri ? (
+            <View style={styles.metaItem}>
+              <Feather name="video" size={13} color={Colors.dark.primary} />
+              <ThemedText type="small" style={[styles.metaText, { color: Colors.dark.primary }]}>
+                Video
+              </ThemedText>
+            </View>
+          ) : null}
+        </View>
+
+        {reflection ? (
+          <ThemedText type="body" style={styles.reflection} numberOfLines={2}>
+            {reflection}
+          </ThemedText>
+        ) : null}
+
+        {skills.length > 0 ? (
+          <View style={styles.skillsContainer}>
+            {skills.map((skill) => (
+              <View key={skill.category} style={styles.skillChip}>
+                <ThemedText style={styles.skillText}>
+                  {skill.category}
+                </ThemedText>
+              </View>
+            ))}
           </View>
         ) : null}
       </View>
-
-      {reflection ? (
-        <ThemedText type="body" style={styles.reflection} numberOfLines={2}>
-          {reflection}
-        </ThemedText>
-      ) : null}
-
-      {skills.length > 0 ? (
-        <View style={styles.skillsContainer}>
-          {skills.map((skill) => (
-            <View key={skill.category} style={styles.skillChip}>
-              <ThemedText type="small" style={styles.skillText}>
-                {skill.category}
-              </ThemedText>
-            </View>
-          ))}
-        </View>
-      ) : null}
     </AnimatedPressable>
   );
 }
@@ -128,8 +126,19 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.sm,
-    padding: Spacing.lg,
     marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "22",
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  moodAccentBar: {
+    width: 4,
+    borderRadius: 0,
+  },
+  inner: {
+    flex: 1,
+    padding: Spacing.lg,
   },
   header: {
     flexDirection: "row",
@@ -139,15 +148,19 @@ const styles = StyleSheet.create({
   },
   date: {
     color: Colors.dark.text,
+    flex: 1,
+    marginRight: Spacing.sm,
   },
-  moodContainer: {
-    flexDirection: "row",
-    gap: 4,
+  moodBadge: {
+    paddingVertical: 3,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
   },
-  moodDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  moodBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   meta: {
     flexDirection: "row",
@@ -165,20 +178,25 @@ const styles = StyleSheet.create({
   reflection: {
     color: Colors.dark.textSecondary,
     marginBottom: Spacing.sm,
+    lineHeight: 22,
   },
   skillsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Spacing.xs,
+    marginTop: Spacing.xs,
   },
   skillChip: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    paddingVertical: 4,
+    backgroundColor: Colors.dark.primary + "15",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "44",
+    paddingVertical: 3,
     paddingHorizontal: Spacing.sm,
     borderRadius: BorderRadius.full,
   },
   skillText: {
     color: Colors.dark.primary,
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: "600",
   },
 });

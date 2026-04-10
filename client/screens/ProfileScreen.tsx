@@ -4,7 +4,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
+import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ThemedText } from "@/components/ThemedText";
@@ -17,6 +19,41 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDiary } from "@/contexts/DiaryContext";
 import { usePremium } from "@/contexts/PremiumContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+function SectionHeader({ icon, label }: { icon: keyof typeof Feather.glyphMap; label: string }) {
+  return (
+    <View style={sectionStyles.container}>
+      <View style={sectionStyles.iconWrap}>
+        <Feather name={icon} size={13} color={Colors.dark.primary} />
+      </View>
+      <ThemedText style={sectionStyles.label}>{label}</ThemedText>
+    </View>
+  );
+}
+
+const sectionStyles = StyleSheet.create({
+  container: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  iconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  label: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+  },
+});
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -71,15 +108,17 @@ export default function ProfileScreen() {
         },
       ]}
     >
-      <View style={styles.profileSection}>
-        <Image
-          source={
-            user?.avatarUri
-              ? { uri: user.avatarUri }
-              : require("../../assets/images/avatar-placeholder.png")
-          }
-          style={styles.avatar}
-        />
+      <Animated.View entering={FadeIn.delay(50)} style={styles.profileSection}>
+        <View style={styles.avatarGlowRing}>
+          <Image
+            source={
+              user?.avatarUri
+                ? { uri: user.avatarUri }
+                : require("../../assets/images/avatar-placeholder.png")
+            }
+            style={styles.avatar}
+          />
+        </View>
         <ThemedText type="display" style={styles.name}>
           {user?.name || "Player"}
         </ThemedText>
@@ -102,12 +141,10 @@ export default function ProfileScreen() {
             </ThemedText>
           </View>
         </View>
-      </View>
+      </Animated.View>
 
-      <View style={styles.statsSection}>
-        <ThemedText type="small" style={styles.sectionLabel}>
-          Your Stats
-        </ThemedText>
+      <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.statsSection}>
+        <SectionHeader icon="bar-chart-2" label="Your Stats" />
         <View style={styles.statsRow}>
           <StatCard
             icon="book-open"
@@ -128,21 +165,17 @@ export default function ProfileScreen() {
             color="#FF6B6B"
           />
         </View>
-      </View>
+      </Animated.View>
 
-      <View style={styles.heatmapSection}>
-        <ThemedText type="small" style={styles.sectionLabel}>
-          Activity
-        </ThemedText>
-        <Card elevation={1} style={styles.heatmapCard}>
+      <Animated.View entering={FadeInDown.delay(160).springify()} style={styles.heatmapSection}>
+        <SectionHeader icon="grid" label="Activity" />
+        <Card elevation={1} style={[styles.heatmapCard, { borderWidth: 1, borderColor: Colors.dark.primary + "22" }]}>
           <CalendarHeatmap entries={entries} weeks={12} />
         </Card>
-      </View>
+      </Animated.View>
 
-      <View style={styles.settingsSection}>
-        <ThemedText type="small" style={styles.sectionLabel}>
-          Features
-        </ThemedText>
+      <Animated.View entering={FadeInDown.delay(220).springify()} style={styles.settingsSection}>
+        <SectionHeader icon="star" label="Features" />
         <SettingsRow
           icon="clipboard"
           label="Training Templates"
@@ -157,13 +190,12 @@ export default function ProfileScreen() {
           icon="star"
           label={isPremium ? "Manage Subscription" : "Upgrade to Pro"}
           onPress={() => navigation.navigate("Upgrade")}
+          iconColor={Colors.dark.accent}
         />
-      </View>
+      </Animated.View>
 
-      <View style={styles.settingsSection}>
-        <ThemedText type="small" style={styles.sectionLabel}>
-          Settings
-        </ThemedText>
+      <Animated.View entering={FadeInDown.delay(280).springify()} style={styles.settingsSection}>
+        <SectionHeader icon="settings" label="Settings" />
         <SettingsRow
           icon="user"
           label="Edit Profile"
@@ -176,7 +208,7 @@ export default function ProfileScreen() {
           destructive
           showChevron={false}
         />
-      </View>
+      </Animated.View>
     </KeyboardAwareScrollViewCompat>
   );
 }
@@ -193,11 +225,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: Spacing["3xl"],
   },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  avatarGlowRing: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "66",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: Spacing.lg,
+    shadowColor: Colors.dark.primary,
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
+  },
+  avatar: {
+    width: 98,
+    height: 98,
+    borderRadius: 49,
     backgroundColor: Colors.dark.backgroundDefault,
   },
   name: {
@@ -217,6 +263,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "44",
   },
   positionText: {
     color: Colors.dark.primary,
@@ -224,24 +272,20 @@ const styles = StyleSheet.create({
   },
   proBadge: {
     backgroundColor: Colors.dark.accent + "20",
+    borderColor: Colors.dark.accent + "44",
   },
   proText: {
     color: Colors.dark.accent,
   },
   freeBadge: {
     backgroundColor: Colors.dark.textSecondary + "20",
+    borderColor: Colors.dark.textSecondary + "44",
   },
   freeText: {
     color: Colors.dark.textSecondary,
   },
   statsSection: {
     marginBottom: Spacing["2xl"],
-  },
-  sectionLabel: {
-    color: Colors.dark.textSecondary,
-    marginBottom: Spacing.md,
-    textTransform: "uppercase",
-    letterSpacing: 1,
   },
   statsRow: {
     flexDirection: "row",
