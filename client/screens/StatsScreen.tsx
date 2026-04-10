@@ -5,7 +5,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import Svg, { Line, Circle, Polyline, Rect, Text as SvgText } from "react-native-svg";
 import Animated, {
-  FadeInDown,
+  FadeIn,
   useSharedValue,
   useAnimatedStyle,
   withDelay,
@@ -269,7 +269,7 @@ export default function StatsScreen() {
       ]}
       showsVerticalScrollIndicator={false}
     >
-      <Animated.View entering={FadeInDown.delay(0).springify()} style={styles.statsRow}>
+      <Animated.View entering={FadeIn.delay(0).duration(400)} style={styles.statsRow}>
         <StatCard
           icon="book-open"
           value={stats.totalEntries}
@@ -290,7 +290,7 @@ export default function StatsScreen() {
         />
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(80).springify()}>
+      <Animated.View entering={FadeIn.delay(80).duration(400)}>
         <SectionHeader icon="activity" title="Mood Trend" />
         <Card elevation={2} style={styles.chartCard}>
           <Svg width={chartWidth} height={CHART_HEIGHT}>
@@ -360,7 +360,7 @@ export default function StatsScreen() {
         </Card>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(160).springify()}>
+      <Animated.View entering={FadeIn.delay(160).duration(400)}>
         <SectionHeader icon="bar-chart-2" title="Training Duration" />
         <Card elevation={2} style={styles.chartCard}>
           <Svg width={chartWidth} height={BAR_CHART_HEIGHT}>
@@ -421,7 +421,7 @@ export default function StatsScreen() {
         </Card>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(240).springify()}>
+      <Animated.View entering={FadeIn.delay(240).duration(400)}>
         <SectionHeader icon="target" title="Skills Focus" />
         <Card elevation={2} style={styles.chartCard}>
           {SkillCategories.map((cat, i) => (
@@ -436,7 +436,7 @@ export default function StatsScreen() {
         </Card>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(320).springify()}>
+      <Animated.View entering={FadeIn.delay(320).duration(400)}>
         <SectionHeader icon="grid" title="Activity Heatmap" />
         <Card elevation={2} style={styles.chartCard}>
           <CalendarHeatmap entries={entries} weeks={12} />

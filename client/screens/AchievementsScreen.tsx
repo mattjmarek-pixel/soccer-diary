@@ -6,7 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Sharing from "expo-sharing";
 import * as Haptics from "expo-haptics";
 import { captureRef } from "react-native-view-shot";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
@@ -156,7 +156,7 @@ export default function AchievementsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.delay(0).springify()} style={styles.counterContainer}>
+        <Animated.View entering={FadeIn.delay(0).duration(400)} style={styles.counterContainer}>
           <ThemedText type="display" style={styles.counterValue}>
             {earnedCount}
           </ThemedText>
@@ -175,7 +175,7 @@ export default function AchievementsScreen() {
             style={styles.row}
           >
             <Animated.View
-              entering={FadeInDown.delay(80 + idx * 120).springify()}
+              entering={FadeIn.delay(80 + idx * 120).duration(400)}
               style={styles.badgeWrapper}
             >
               <BadgeCard
@@ -196,7 +196,7 @@ export default function AchievementsScreen() {
             </Animated.View>
             {row.right ? (
               <Animated.View
-                entering={FadeInDown.delay(80 + idx * 120 + 60).springify()}
+                entering={FadeIn.delay(80 + idx * 120 + 60).duration(400)}
                 style={styles.badgeWrapper}
               >
                 <BadgeCard

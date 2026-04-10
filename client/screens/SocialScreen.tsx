@@ -32,7 +32,6 @@ import Animated, {
   interpolate,
   runOnJS,
   FadeIn,
-  FadeInDown,
 } from "react-native-reanimated";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
 
@@ -299,7 +298,7 @@ function PodiumPlayer({
   const avatarSize = elevated ? 66 : 52;
   return (
     <Animated.View
-      entering={FadeInDown.delay(rank * 60).springify()}
+      entering={FadeIn.delay(rank * 60).duration(400)}
       style={[{ flex: 1, alignItems: "center" }, animStyle]}
     >
       <Pressable
@@ -425,7 +424,7 @@ function PlayerRow({
   const rankChange = getRankChange(player.id);
 
   return (
-    <Animated.View entering={FadeInDown.delay(rank * 40).springify()} style={animStyle}>
+    <Animated.View entering={FadeIn.delay(rank * 40).duration(400)} style={animStyle}>
       <Pressable
         onPress={() => {
           Haptics.selectionAsync();
@@ -1368,6 +1367,7 @@ export default function SocialScreen() {
       </GestureDetector>
 
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
         showsVerticalScrollIndicator={false}
       >

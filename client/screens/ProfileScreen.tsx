@@ -6,7 +6,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ThemedText } from "@/components/ThemedText";
@@ -143,7 +143,7 @@ export default function ProfileScreen() {
         </View>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.statsSection}>
+      <Animated.View entering={FadeIn.delay(100).duration(400)} style={styles.statsSection}>
         <SectionHeader icon="bar-chart-2" label="Your Stats" />
         <View style={styles.statsRow}>
           <StatCard
@@ -167,14 +167,14 @@ export default function ProfileScreen() {
         </View>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(160).springify()} style={styles.heatmapSection}>
+      <Animated.View entering={FadeIn.delay(160).duration(400)} style={styles.heatmapSection}>
         <SectionHeader icon="grid" label="Activity" />
         <Card elevation={1} style={styles.heatmapCard}>
           <CalendarHeatmap entries={entries} weeks={12} />
         </Card>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(220).springify()} style={styles.settingsSection}>
+      <Animated.View entering={FadeIn.delay(220).duration(400)} style={styles.settingsSection}>
         <SectionHeader icon="star" label="Features" />
         <SettingsRow
           icon="clipboard"
@@ -194,7 +194,7 @@ export default function ProfileScreen() {
         />
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(280).springify()} style={styles.settingsSection}>
+      <Animated.View entering={FadeIn.delay(280).duration(400)} style={styles.settingsSection}>
         <SectionHeader icon="settings" label="Settings" />
         <SettingsRow
           icon="user"

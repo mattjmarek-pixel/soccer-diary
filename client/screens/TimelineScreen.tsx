@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
-import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
 
 import { DiaryEntryCard } from "@/components/DiaryEntryCard";
@@ -115,7 +115,7 @@ export default function TimelineScreen() {
 
   const renderItem = useCallback(
     ({ item, index }: { item: typeof entries[0]; index: number }) => (
-      <Animated.View entering={FadeInDown.delay(index * 60).springify()}>
+      <Animated.View entering={FadeIn.delay(index * 60).duration(400)}>
         <DiaryEntryCard
           date={item.date}
           mood={item.mood}
