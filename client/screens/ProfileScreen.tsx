@@ -169,7 +169,7 @@ export default function ProfileScreen() {
 
       <Animated.View entering={FadeInDown.delay(160).springify()} style={styles.heatmapSection}>
         <SectionHeader icon="grid" label="Activity" />
-        <Card elevation={1} style={[styles.heatmapCard, { borderWidth: 1, borderColor: Colors.dark.primary + "22" }]}>
+        <Card elevation={1} style={styles.heatmapCard}>
           <CalendarHeatmap entries={entries} weeks={12} />
         </Card>
       </Animated.View>
@@ -296,6 +296,8 @@ const styles = StyleSheet.create({
   },
   heatmapCard: {
     paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "22",
   },
   settingsSection: {
     marginBottom: Spacing["2xl"],

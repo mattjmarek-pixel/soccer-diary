@@ -17,7 +17,7 @@ import { DiaryEntryCard } from "@/components/DiaryEntryCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { useDiary } from "@/contexts/DiaryContext";
+import { useDiary, DiaryEntry, DiaryStats } from "@/contexts/DiaryContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const formatMinutes = (minutes: number): string => {
@@ -27,7 +27,7 @@ const formatMinutes = (minutes: number): string => {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 };
 
-function WeeklyBanner({ entries, stats }: { entries: any[]; stats: any }) {
+function WeeklyBanner({ entries, stats }: { entries: DiaryEntry[]; stats: DiaryStats }) {
   const weeklyData = useMemo(() => {
     const now = new Date();
     const startOfWeek = new Date(now);

@@ -346,7 +346,6 @@ const styles = StyleSheet.create({
   },
   counterContainer: {
     alignItems: "center",
-    marginBottom: Spacing["3xl"],
     paddingVertical: Spacing.xl,
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.sm,

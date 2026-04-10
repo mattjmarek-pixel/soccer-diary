@@ -20,7 +20,7 @@ export interface DiaryEntry {
   updatedAt: string;
 }
 
-interface DiaryStats {
+export interface DiaryStats {
   totalEntries: number;
   totalMinutes: number;
   currentStreak: number;

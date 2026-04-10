@@ -19,7 +19,7 @@ export function StatCard({
   color = Colors.dark.primary,
 }: StatCardProps) {
   return (
-    <View style={[styles.container, { borderColor: color + "33" }]}>
+    <View style={styles.container}>
       <View style={[styles.iconContainer, { backgroundColor: color + "20" }]}>
         <Feather name={icon} size={20} color={color} />
       </View>
@@ -41,6 +41,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     alignItems: "center",
     borderWidth: 1,
+    borderColor: Colors.dark.primary + "22",
   },
   iconContainer: {
     width: 44,
