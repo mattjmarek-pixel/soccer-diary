@@ -1,18 +1,33 @@
-import React, { useMemo } from "react";
-import { View, ScrollView, StyleSheet } from "react-native";
+import React, { useMemo, useRef, useState, useEffect } from "react";
+import { View, ScrollView, StyleSheet, Pressable, Alert } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
+import * as Sharing from "expo-sharing";
+import * as Haptics from "expo-haptics";
+import { captureRef } from "react-native-view-shot";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useDiary } from "@/contexts/DiaryContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { ACHIEVEMENTS } from "@/constants/achievements";
+
+type SharableBadge = {
+  title: string;
+  description: string;
+  icon: string;
+  color: string;
+};
 
 export default function AchievementsScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { entries, stats } = useDiary();
+  const { user } = useAuth();
+
+  const [sharingBadge, setSharingBadge] = useState<SharableBadge | null>(null);
+  const badgeShareRef = useRef<View>(null);
 
   const earnedStatus = useMemo(() => {
     return ACHIEVEMENTS.map((a) => ({
@@ -25,54 +40,140 @@ export default function AchievementsScreen() {
 
   const rows: { left: typeof earnedStatus[0]; right?: typeof earnedStatus[0] }[] = [];
   for (let i = 0; i < earnedStatus.length; i += 2) {
-    rows.push({
-      left: earnedStatus[i],
-      right: earnedStatus[i + 1],
-    });
+    rows.push({ left: earnedStatus[i], right: earnedStatus[i + 1] });
   }
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[
-        styles.content,
-        {
-          paddingTop: headerHeight + Spacing.xl,
-          paddingBottom: tabBarHeight + Spacing["2xl"],
-        },
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.counterContainer}>
-        <ThemedText type="display" style={styles.counterValue}>
-          {earnedCount}
-        </ThemedText>
-        <ThemedText type="body" style={styles.counterLabel}>
-          of {ACHIEVEMENTS.length} earned
-        </ThemedText>
-      </View>
+  useEffect(() => {
+    if (!sharingBadge) return;
+    const timer = setTimeout(async () => {
+      try {
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (!isAvailable) {
+          Alert.alert("Sharing", "Sharing is not available on this device.");
+          setSharingBadge(null);
+          return;
+        }
+        if (badgeShareRef.current) {
+          const uri = await captureRef(badgeShareRef, { format: "png", quality: 1 });
+          await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: "Share Badge" });
+        }
+      } catch {
+        Alert.alert("Error", "Could not share this badge. Please try again.");
+      } finally {
+        setSharingBadge(null);
+      }
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [sharingBadge]);
 
-      {rows.map((row, idx) => (
-        <View key={`row-${idx}`} style={styles.row}>
-          <BadgeCard
-            title={row.left.title}
-            description={row.left.description}
-            icon={row.left.icon}
-            color={row.left.color}
-            earned={row.left.earned}
-          />
-          {row.right ? (
-            <BadgeCard
-              title={row.right.title}
-              description={row.right.description}
-              icon={row.right.icon}
-              color={row.right.color}
-              earned={row.right.earned}
-            />
-          ) : <View style={styles.badge} />}
+  const handleShareBadge = (badge: SharableBadge) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSharingBadge(badge);
+  };
+
+  return (
+    <>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: headerHeight + Spacing.xl,
+            paddingBottom: tabBarHeight + Spacing["2xl"],
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.counterContainer}>
+          <ThemedText type="display" style={styles.counterValue}>
+            {earnedCount}
+          </ThemedText>
+          <ThemedText type="body" style={styles.counterLabel}>
+            of {ACHIEVEMENTS.length} earned
+          </ThemedText>
         </View>
-      ))}
-    </ScrollView>
+
+        {rows.map((row, idx) => (
+          <View key={`row-${idx}`} style={styles.row}>
+            <BadgeCard
+              title={row.left.title}
+              description={row.left.description}
+              icon={row.left.icon}
+              color={row.left.color}
+              earned={row.left.earned}
+              onShare={() =>
+                handleShareBadge({
+                  title: row.left.title,
+                  description: row.left.description,
+                  icon: row.left.icon,
+                  color: row.left.color,
+                })
+              }
+            />
+            {row.right ? (
+              <BadgeCard
+                title={row.right.title}
+                description={row.right.description}
+                icon={row.right.icon}
+                color={row.right.color}
+                earned={row.right.earned}
+                onShare={() =>
+                  handleShareBadge({
+                    title: row.right!.title,
+                    description: row.right!.description,
+                    icon: row.right!.icon,
+                    color: row.right!.color,
+                  })
+                }
+              />
+            ) : (
+              <View style={styles.badge} />
+            )}
+          </View>
+        ))}
+      </ScrollView>
+
+      {sharingBadge ? (
+        <View style={styles.offScreenCapture} collapsable={false} ref={badgeShareRef}>
+          <View style={styles.shareCard}>
+            <View style={styles.shareCardHeader}>
+              <Feather name="activity" size={16} color={Colors.dark.primary} />
+              <ThemedText style={styles.shareCardAppName}>Soccer Diary</ThemedText>
+            </View>
+            <View
+              style={[
+                styles.shareCardIconCircle,
+                { backgroundColor: sharingBadge.color + "25" },
+              ]}
+            >
+              <Feather
+                name={sharingBadge.icon as keyof typeof Feather.glyphMap}
+                size={48}
+                color={sharingBadge.color}
+              />
+            </View>
+            <View
+              style={[
+                styles.shareCardBadgePill,
+                { backgroundColor: sharingBadge.color + "20", borderColor: sharingBadge.color + "55" },
+              ]}
+            >
+              <ThemedText style={[styles.shareCardBadgePillText, { color: sharingBadge.color }]}>
+                Badge Unlocked
+              </ThemedText>
+            </View>
+            <ThemedText style={styles.shareCardTitle}>{sharingBadge.title}</ThemedText>
+            <ThemedText style={styles.shareCardDesc}>{sharingBadge.description}</ThemedText>
+            {user?.name ? (
+              <ThemedText style={styles.shareCardPlayer}>{user.name}</ThemedText>
+            ) : null}
+            <View style={styles.shareCardFooter}>
+              <ThemedText style={styles.shareCardFooterText}>Train. Track. Grow.</ThemedText>
+            </View>
+          </View>
+        </View>
+      ) : null}
+    </>
   );
 }
 
@@ -82,12 +183,14 @@ function BadgeCard({
   icon,
   color,
   earned,
+  onShare,
 }: {
   title: string;
   description: string;
   icon: string;
   color: string;
   earned: boolean;
+  onShare: () => void;
 }) {
   return (
     <View
@@ -102,9 +205,18 @@ function BadgeCard({
       ]}
     >
       {earned ? (
-        <View style={styles.checkBadge}>
-          <Feather name="check" size={10} color={Colors.dark.buttonText} />
-        </View>
+        <>
+          <View style={styles.checkBadge}>
+            <Feather name="check" size={10} color={Colors.dark.buttonText} />
+          </View>
+          <Pressable
+            style={styles.shareBadgeBtn}
+            onPress={onShare}
+            hitSlop={8}
+          >
+            <Feather name="share-2" size={13} color={Colors.dark.textSecondary} />
+          </Pressable>
+        </>
       ) : null}
 
       <View
@@ -178,11 +290,23 @@ const styles = StyleSheet.create({
   checkBadge: {
     position: "absolute",
     top: Spacing.sm,
-    right: Spacing.sm,
+    right: Spacing["2xl"] + Spacing.sm,
     width: 20,
     height: 20,
     borderRadius: 10,
     backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+  },
+  shareBadgeBtn: {
+    position: "absolute",
+    top: Spacing.sm,
+    right: Spacing.sm,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.backgroundTertiary,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
@@ -203,5 +327,83 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: Colors.dark.textSecondary,
     lineHeight: 18,
+  },
+  offScreenCapture: {
+    position: "absolute",
+    left: -1000,
+    top: -1000,
+  },
+  shareCard: {
+    width: 340,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing["2xl"],
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundSecondary,
+  },
+  shareCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing["2xl"],
+    alignSelf: "flex-start",
+  },
+  shareCardAppName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  shareCardIconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xl,
+  },
+  shareCardBadgePill: {
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    marginBottom: Spacing.md,
+  },
+  shareCardBadgePillText: {
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  shareCardTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: Spacing.xs,
+  },
+  shareCardDesc: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    marginBottom: Spacing.xl,
+  },
+  shareCardPlayer: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontWeight: "600",
+    marginBottom: Spacing.xl,
+  },
+  shareCardFooter: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.backgroundSecondary,
+    paddingTop: Spacing.md,
+    alignSelf: "stretch",
+    alignItems: "center",
+  },
+  shareCardFooterText: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    letterSpacing: 1,
   },
 });

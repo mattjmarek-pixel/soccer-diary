@@ -218,31 +218,40 @@ export default function DiaryDetailScreen() {
       <View style={styles.shareCardWrapper} collapsable={false} ref={shareCardRef}>
         <View style={styles.shareCard}>
           <View style={styles.shareHeader}>
-            <Feather name="activity" size={20} color={Colors.dark.primary} />
-            <ThemedText type="heading" style={styles.shareAppName}>
-              Soccer Diary
-            </ThemedText>
+            <Feather name="activity" size={16} color={Colors.dark.primary} />
+            <ThemedText style={styles.shareAppName}>Soccer Diary</ThemedText>
           </View>
-          <View style={styles.shareBody}>
-            <ThemedText type="display" style={[styles.shareMood, { color: moodColor }]}>
+          <View style={[styles.shareMoodBadge, { backgroundColor: moodColor + "20" }]}>
+            <ThemedText style={[styles.shareMoodText, { color: moodColor }]}>
               {moodLabels[entry.mood - 1]}
             </ThemedText>
-            <ThemedText type="body" style={styles.shareDetail}>
-              {entry.duration} min training session
+          </View>
+          <ThemedText style={styles.shareDuration}>
+            {entry.duration} min session
+          </ThemedText>
+          {entry.skills.length > 0 ? (
+            <View style={styles.shareSkillsRow}>
+              {entry.skills.slice(0, 4).map((s) => (
+                <View key={s.category} style={styles.shareSkillChip}>
+                  <ThemedText style={styles.shareSkillChipText}>{s.category}</ThemedText>
+                </View>
+              ))}
+            </View>
+          ) : null}
+          {entry.reflection ? (
+            <ThemedText style={styles.shareReflection} numberOfLines={2}>
+              "{entry.reflection}"
             </ThemedText>
-            {entry.skills.length > 0 ? (
-              <ThemedText type="small" style={styles.shareSkills}>
-                {entry.skills.map((s) => s.category).join(" / ")}
-              </ThemedText>
-            ) : null}
-            <ThemedText type="small" style={styles.shareDate}>
+          ) : null}
+          <View style={styles.shareFooterRow}>
+            <ThemedText style={styles.shareDate}>
               {new Date(entry.date).toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
+                weekday: "short",
+                month: "short",
                 day: "numeric",
-                year: "numeric",
               })}
             </ThemedText>
+            <ThemedText style={styles.shareTagline}>Train. Track. Grow.</ThemedText>
           </View>
         </View>
       </View>
@@ -344,37 +353,80 @@ const styles = StyleSheet.create({
     top: -1000,
   },
   shareCard: {
-    width: 360,
+    width: 340,
     backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     padding: Spacing["2xl"],
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "30",
+    borderColor: Colors.dark.backgroundSecondary,
   },
   shareHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
-    marginBottom: Spacing.xl,
+    gap: Spacing.xs,
+    marginBottom: Spacing.lg,
   },
   shareAppName: {
+    fontSize: 13,
+    fontWeight: "700",
     color: Colors.dark.primary,
   },
-  shareBody: {
-    alignItems: "center",
-    gap: Spacing.sm,
+  shareMoodBadge: {
+    alignSelf: "flex-start",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.full,
+    marginBottom: Spacing.md,
   },
-  shareMood: {
-    fontSize: 32,
+  shareMoodText: {
+    fontSize: 20,
+    fontWeight: "800",
   },
-  shareDetail: {
-    color: Colors.dark.text,
-  },
-  shareSkills: {
+  shareDuration: {
+    fontSize: 14,
     color: Colors.dark.textSecondary,
+    marginBottom: Spacing.md,
+  },
+  shareSkillsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+    marginBottom: Spacing.md,
+  },
+  shareSkillChip: {
+    backgroundColor: Colors.dark.primary + "18",
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+  },
+  shareSkillChipText: {
+    fontSize: 11,
+    color: Colors.dark.primary,
+    fontWeight: "700",
+  },
+  shareReflection: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontStyle: "italic",
+    lineHeight: 20,
+    marginBottom: Spacing.md,
+  },
+  shareFooterRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.backgroundSecondary,
+    paddingTop: Spacing.md,
+    marginTop: Spacing.sm,
   },
   shareDate: {
+    fontSize: 11,
     color: Colors.dark.textSecondary,
-    marginTop: Spacing.sm,
+  },
+  shareTagline: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    letterSpacing: 0.5,
   },
 });

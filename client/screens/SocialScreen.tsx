@@ -11,7 +11,10 @@ import {
   Share,
   Linking,
   ActivityIndicator,
+  Alert,
 } from "react-native";
+import * as Sharing from "expo-sharing";
+import { captureRef } from "react-native-view-shot";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
@@ -1070,6 +1073,25 @@ export default function SocialScreen() {
     [onSwipeTab]
   );
 
+  const rankShareRef = useRef<View>(null);
+
+  const handleShareRanking = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert("Sharing", "Sharing is not available on this device.");
+        return;
+      }
+      if (rankShareRef.current) {
+        const uri = await captureRef(rankShareRef, { format: "png", quality: 1 });
+        await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: "Share My Rankings" });
+      }
+    } catch {
+      Alert.alert("Error", "Could not share your rankings. Please try again.");
+    }
+  }, []);
+
   const friendsKey = user ? `${FRIENDS_STORAGE_BASE_KEY}_${user.id}` : null;
   const countryKey = user ? `${COUNTRY_STORAGE_KEY}_${user.id}` : COUNTRY_STORAGE_KEY;
 
@@ -1266,7 +1288,12 @@ export default function SocialScreen() {
 
         {/* Rankings Summary Card */}
         <Animated.View entering={FadeIn.delay(80)} style={styles.rankSummaryCard}>
-          <ThemedText style={styles.rankSummaryTitle}>Your Rankings This Week</ThemedText>
+          <View style={styles.rankSummaryHeader}>
+            <ThemedText style={styles.rankSummaryTitle}>Your Rankings This Week</ThemedText>
+            <Pressable onPress={handleShareRanking} style={styles.rankShareBtn} hitSlop={8}>
+              <Feather name="share-2" size={16} color={Colors.dark.primary} />
+            </Pressable>
+          </View>
           <View style={styles.rankPillRow}>
             <View style={styles.rankPill}>
               <Feather name="globe" size={12} color={Colors.dark.textSecondary} />
@@ -1482,6 +1509,61 @@ export default function SocialScreen() {
         </View>
       </ScrollView>
 
+      <View
+        style={styles.rankShareOffScreen}
+        collapsable={false}
+        ref={rankShareRef}
+      >
+        <View style={styles.rankShareCard}>
+          <View style={styles.rankShareCardHeader}>
+            <Feather name="activity" size={16} color={Colors.dark.primary} />
+            <ThemedText style={styles.rankShareCardAppName}>Soccer Diary</ThemedText>
+          </View>
+          <ThemedText style={styles.rankShareCardPlayerName}>
+            {user?.name ?? "My Rankings"}
+          </ThemedText>
+          <ThemedText style={styles.rankShareCardWeek}>This Week</ThemedText>
+          <View style={styles.rankSharePills}>
+            <View style={styles.rankSharePill}>
+              <Feather name="globe" size={14} color={Colors.dark.textSecondary} />
+              <ThemedText style={styles.rankSharePillLabel}>Global</ThemedText>
+              <ThemedText style={styles.rankSharePillValue}>#{myRankGlobal}</ThemedText>
+              <ThemedText style={styles.rankSharePillSub}>of {totalGlobal}</ThemedText>
+            </View>
+            <View style={[styles.rankSharePill, { borderColor: Colors.dark.primary + "55" }]}>
+              <ThemedText style={{ fontSize: 16 }}>{countryInfo.flag}</ThemedText>
+              <ThemedText style={styles.rankSharePillLabel}>National</ThemedText>
+              <ThemedText style={[styles.rankSharePillValue, { color: Colors.dark.primary }]}>
+                #{myNationalRank}
+              </ThemedText>
+              <ThemedText style={styles.rankSharePillSub}>of {totalNational}</ThemedText>
+            </View>
+            <View style={styles.rankSharePill}>
+              <Feather name="users" size={14} color={Colors.dark.textSecondary} />
+              <ThemedText style={styles.rankSharePillLabel}>{userAgeBracket}</ThemedText>
+              <ThemedText style={styles.rankSharePillValue}>#{myAgeBracketRank}</ThemedText>
+              <ThemedText style={styles.rankSharePillSub}>of {ageBracketPool.length + 1}</ThemedText>
+            </View>
+          </View>
+          <View style={styles.rankShareStats}>
+            <View style={styles.rankShareStat}>
+              <Feather name="clock" size={14} color={Colors.dark.primary} />
+              <ThemedText style={styles.rankShareStatValue}>{weeklyMins}m</ThemedText>
+              <ThemedText style={styles.rankShareStatLabel}>this week</ThemedText>
+            </View>
+            <View style={styles.rankShareStatDivider} />
+            <View style={styles.rankShareStat}>
+              <Feather name="zap" size={14} color={Colors.dark.accent} />
+              <ThemedText style={styles.rankShareStatValue}>{stats.currentStreak}</ThemedText>
+              <ThemedText style={styles.rankShareStatLabel}>day streak</ThemedText>
+            </View>
+          </View>
+          <View style={styles.rankShareCardFooter}>
+            <ThemedText style={styles.rankShareCardFooterText}>Train. Track. Grow.</ThemedText>
+          </View>
+        </View>
+      </View>
+
       {selectedPlayer !== null ? (
         <PlayerProfileModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />
       ) : null}
@@ -1578,13 +1660,133 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.primary + "22",
   },
+  rankSummaryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.sm,
+  },
   rankSummaryTitle: {
     fontSize: 12,
     fontWeight: "700",
     color: Colors.dark.textSecondary,
-    marginBottom: Spacing.sm,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+  },
+  rankShareBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Colors.dark.primary + "18",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rankShareOffScreen: {
+    position: "absolute",
+    left: -1200,
+    top: -1200,
+  },
+  rankShareCard: {
+    width: 340,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing["2xl"],
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundSecondary,
+  },
+  rankShareCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    alignSelf: "flex-start",
+    marginBottom: Spacing.lg,
+  },
+  rankShareCardAppName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  rankShareCardPlayerName: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  rankShareCardWeek: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    marginBottom: Spacing.lg,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  rankSharePills: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+    alignSelf: "stretch",
+  },
+  rankSharePill: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    alignItems: "center",
+    gap: 2,
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundSecondary,
+  },
+  rankSharePillLabel: {
+    fontSize: 9,
+    color: Colors.dark.textSecondary,
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+  rankSharePillValue: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: Colors.dark.text,
+  },
+  rankSharePillSub: {
+    fontSize: 9,
+    color: Colors.dark.textSecondary,
+  },
+  rankShareStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xl,
+    marginBottom: Spacing.xl,
+  },
+  rankShareStat: {
+    alignItems: "center",
+    gap: 2,
+  },
+  rankShareStatValue: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: Colors.dark.text,
+  },
+  rankShareStatLabel: {
+    fontSize: 10,
+    color: Colors.dark.textSecondary,
+  },
+  rankShareStatDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  rankShareCardFooter: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.backgroundSecondary,
+    paddingTop: Spacing.md,
+    alignSelf: "stretch",
+    alignItems: "center",
+  },
+  rankShareCardFooterText: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    letterSpacing: 1,
   },
   rankPillRow: {
     flexDirection: "row",
