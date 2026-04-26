@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { SkillCategory, computeEntryXp } from "@/constants/theme";
+import { SkillCategory, computeEntryXp, getLevelInfo } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface DiaryEntry {
@@ -17,7 +17,7 @@ export interface DiaryEntry {
   }[];
   videoUri?: string;
   mediaType?: "photo" | "video";
-  xpAwarded: number;
+  xpAwarded?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -41,6 +41,7 @@ interface DiaryContextType {
   deleteEntry: (id: string) => Promise<void>;
   getEntry: (id: string) => DiaryEntry | undefined;
   refreshEntries: () => Promise<void>;
+  getLevelInfo: () => ReturnType<typeof getLevelInfo>;
 }
 
 const DiaryContext = createContext<DiaryContextType | undefined>(undefined);
@@ -162,7 +163,7 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
       mediaType: updates.mediaType ?? existingEntry.mediaType,
     });
 
-    const xpDelta = newXpAwarded - existingEntry.xpAwarded;
+    const xpDelta = newXpAwarded - (existingEntry.xpAwarded ?? 0);
 
     const updatedEntry: DiaryEntry = {
       ...existingEntry,
@@ -255,6 +256,7 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
         deleteEntry,
         getEntry,
         refreshEntries,
+        getLevelInfo: () => getLevelInfo(totalXp),
       }}
     >
       {children}

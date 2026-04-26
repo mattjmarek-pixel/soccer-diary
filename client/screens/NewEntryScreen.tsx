@@ -588,7 +588,7 @@ export default function NewEntryScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         savedRef.current = true;
-        setXpFlashAmount(savedEntry.xpAwarded);
+        setXpFlashAmount(savedEntry.xpAwarded ?? 0);
         setTimeout(() => setIsCelebrating(true), 750);
       }
     } catch {
