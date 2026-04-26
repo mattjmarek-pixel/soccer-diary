@@ -563,6 +563,7 @@ export default function NewEntryScreen() {
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
     const mins = parseInt(duration);
     if (!duration || mins <= 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -594,7 +595,6 @@ export default function NewEntryScreen() {
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Error", "Failed to save entry. Please try again.");
-    } finally {
       setIsSaving(false);
     }
   };
