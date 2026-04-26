@@ -575,9 +575,14 @@ export default function NewEntryScreen() {
     try {
       const entryData = { date, mood, duration: mins, reflection, skills, videoUri: mediaUri, mediaType };
       if (isEditing && existingEntry) {
-        await updateEntry(existingEntry.id, entryData);
+        const { xpDelta } = await updateEntry(existingEntry.id, entryData);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        navigation.goBack();
+        if (xpDelta > 0) {
+          setXpFlashAmount(xpDelta);
+          setTimeout(() => navigation.goBack(), 1000);
+        } else {
+          navigation.goBack();
+        }
       } else {
         const savedEntry = await addEntry(entryData);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -616,6 +621,12 @@ export default function NewEntryScreen() {
 
   if (isEditing) {
     return (
+      <View style={{ flex: 1 }}>
+      {xpFlashAmount > 0 ? (
+        <Animated.View style={[editStyles.xpFlashOverlay, xpFlashStyle, { pointerEvents: "none" }]}>
+          <ThemedText style={wizardStyles.xpFlashText}>+{xpFlashAmount} XP</ThemedText>
+        </Animated.View>
+      ) : null}
       <KeyboardAwareScrollViewCompat
         style={editStyles.container}
         contentContainerStyle={[editStyles.content, { paddingBottom: insets.bottom + Spacing["2xl"] }]}
@@ -684,6 +695,7 @@ export default function NewEntryScreen() {
           {isSaving ? <ActivityIndicator color={Colors.dark.buttonText} /> : "Update Entry"}
         </Button>
       </KeyboardAwareScrollViewCompat>
+      </View>
     );
   }
 
@@ -1132,5 +1144,11 @@ const editStyles = StyleSheet.create({
   videoButtons: {
     flexDirection: "row",
     gap: Spacing.md,
+  },
+  xpFlashOverlay: {
+    position: "absolute",
+    top: 220,
+    alignSelf: "center",
+    zIndex: 100,
   },
 });

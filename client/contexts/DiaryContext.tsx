@@ -37,7 +37,7 @@ interface DiaryContextType {
   stats: DiaryStats;
   totalXp: number;
   addEntry: (entry: AddEntryInput) => Promise<DiaryEntry>;
-  updateEntry: (id: string, updates: UpdateEntryInput) => Promise<void>;
+  updateEntry: (id: string, updates: UpdateEntryInput) => Promise<{ xpDelta: number }>;
   deleteEntry: (id: string) => Promise<void>;
   getEntry: (id: string) => DiaryEntry | undefined;
   refreshEntries: () => Promise<void>;
@@ -125,7 +125,7 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
     const xpAwarded = computeEntryXp({
       duration: entry.duration,
       reflection: entry.reflection,
-      videoUri: entry.videoUri,
+      mediaType: entry.mediaType,
     });
 
     const now = new Date().toISOString();
@@ -150,7 +150,7 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
     return newEntry;
   };
 
-  const updateEntry = async (id: string, updates: UpdateEntryInput): Promise<void> => {
+  const updateEntry = async (id: string, updates: UpdateEntryInput): Promise<{ xpDelta: number }> => {
     const entryIndex = entries.findIndex((e) => e.id === id);
     if (entryIndex === -1) throw new Error("Entry not found");
 
@@ -159,7 +159,7 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
     const newXpAwarded = computeEntryXp({
       duration: updates.duration ?? existingEntry.duration,
       reflection: updates.reflection ?? existingEntry.reflection,
-      videoUri: updates.videoUri ?? existingEntry.videoUri,
+      mediaType: updates.mediaType ?? existingEntry.mediaType,
     });
 
     const xpDelta = newXpAwarded - existingEntry.xpAwarded;
@@ -185,6 +185,8 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
       setTotalXp(newTotalXp);
       saveXp(newTotalXp);
     }
+
+    return { xpDelta };
   };
 
   const deleteEntry = async (id: string): Promise<void> => {

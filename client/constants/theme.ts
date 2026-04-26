@@ -174,12 +174,12 @@ export type LevelName = (typeof LEVELS)[number]["name"];
 export function computeEntryXp(entry: {
   duration: number;
   reflection: string;
-  videoUri?: string;
+  mediaType?: "photo" | "video";
 }): number {
   let xp = 20;
   xp += Math.min(entry.duration, 60);
   if (entry.reflection && entry.reflection.length > 50) xp += 15;
-  if (entry.videoUri) xp += 20;
+  if (entry.mediaType === "video") xp += 20;
   return xp;
 }
 
