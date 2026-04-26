@@ -443,7 +443,7 @@ export default function NewEntryScreen() {
   const navigation = useNavigation<NewEntryNavigationProp>();
   const route = useRoute<NewEntryRouteProp>();
   const { addEntry, updateEntry } = useDiary();
-  const { awardXp } = useXP();
+  const { awardXp, deductXp } = useXP();
 
   const existingEntry = route.params?.entry;
   const isEditing = !!existingEntry;
@@ -578,7 +578,14 @@ export default function NewEntryScreen() {
       const xp = computeEntryXp({ duration: mins, reflection, videoUri: mediaUri });
       const entryData = { date, mood, duration: mins, reflection, skills, videoUri: mediaUri, mediaType, xpAwarded: xp };
       if (isEditing && existingEntry) {
+        const prevXp = existingEntry.xpAwarded ?? 0;
+        const delta = xp - prevXp;
         await updateEntry(existingEntry.id, entryData);
+        if (delta > 0) {
+          await awardXp(delta);
+        } else if (delta < 0) {
+          await deductXp(Math.abs(delta));
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         navigation.goBack();
       } else {

@@ -56,8 +56,7 @@ function XpRing({ progress, color }: { progress: number; color: string }) {
         strokeDasharray={XP_RING_CIRCUMFERENCE}
         strokeDashoffset={dashOffset}
         strokeLinecap="round"
-        rotation="-90"
-        origin={`${XP_RING_SIZE / 2}, ${XP_RING_SIZE / 2}`}
+        transform={`rotate(-90, ${XP_RING_SIZE / 2}, ${XP_RING_SIZE / 2})`}
       />
     </Svg>
   );
