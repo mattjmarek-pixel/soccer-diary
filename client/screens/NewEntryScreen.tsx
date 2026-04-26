@@ -464,8 +464,14 @@ export default function NewEntryScreen() {
   const savedRef = useRef(false);
 
   const hasData = useCallback(() => {
-    return duration !== "" || reflection !== "" || skills.length > 0 || mediaUri !== undefined;
-  }, [duration, reflection, skills, mediaUri]);
+    return (
+      mood !== 3 ||
+      duration !== "" ||
+      reflection !== "" ||
+      skills.length > 0 ||
+      mediaUri !== undefined
+    );
+  }, [mood, duration, reflection, skills, mediaUri]);
 
   useEffect(() => {
     if (isEditing) return;
@@ -730,7 +736,10 @@ export default function NewEntryScreen() {
             </Button>
           )}
           {isLastStep ? (
-            <Pressable onPress={handleSave} style={wizardStyles.skipBtn}>
+            <Pressable
+              onPress={isSaving ? undefined : handleSave}
+              style={[wizardStyles.skipBtn, isSaving ? { opacity: 0.4 } : null]}
+            >
               <ThemedText type="small" style={wizardStyles.skipLabel}>Skip media & save</ThemedText>
             </Pressable>
           ) : currentStep >= 2 ? (
