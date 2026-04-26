@@ -161,7 +161,7 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
 
     const newXpAwarded = computeEntryXp({
       duration: "duration" in updates ? (updates.duration as number) : existingEntry.duration,
-      reflection: "reflection" in updates ? updates.reflection : existingEntry.reflection,
+      reflection: "reflection" in updates ? (updates.reflection ?? existingEntry.reflection) : existingEntry.reflection,
       mediaType: "mediaType" in updates ? updates.mediaType : existingEntry.mediaType,
     });
 

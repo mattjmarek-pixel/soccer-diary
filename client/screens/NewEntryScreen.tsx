@@ -595,6 +595,7 @@ export default function NewEntryScreen() {
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Error", "Failed to save entry. Please try again.");
+    } finally {
       setIsSaving(false);
     }
   };

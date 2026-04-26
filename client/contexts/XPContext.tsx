@@ -164,7 +164,7 @@ function LevelUpModal({
       const isAvailable = await Sharing.isAvailableAsync();
       if (!isAvailable) return;
       const uri = await captureRef(cardRef, { format: "png", quality: 1 });
-      await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: "Share Achievement" });
+      await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: `I just reached ${levelName} on Soccer Diary!` });
     } catch {}
   };
 
