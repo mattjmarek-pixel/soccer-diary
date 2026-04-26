@@ -22,6 +22,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { DiaryProvider } from "@/contexts/DiaryContext";
 import { PremiumProvider } from "@/contexts/PremiumContext";
 import { AchievementProvider } from "@/contexts/AchievementContext";
+import { XPProvider } from "@/contexts/XPContext";
 import { Colors } from "@/constants/theme";
 
 SplashScreen.preventAutoHideAsync();
@@ -49,6 +50,7 @@ export default function App() {
         <DiaryProvider>
           <PremiumProvider>
           <AchievementProvider>
+          <XPProvider>
           <QueryClientProvider client={queryClient}>
             <SafeAreaProvider>
               <GestureHandlerRootView style={styles.root}>
@@ -61,6 +63,7 @@ export default function App() {
               </GestureHandlerRootView>
             </SafeAreaProvider>
           </QueryClientProvider>
+          </XPProvider>
           </AchievementProvider>
           </PremiumProvider>
         </DiaryProvider>

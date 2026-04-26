@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, StyleSheet, Image, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -6,7 +6,12 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, {
+  FadeIn,
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from "react-native-reanimated";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ThemedText } from "@/components/ThemedText";
@@ -18,7 +23,41 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDiary } from "@/contexts/DiaryContext";
 import { usePremium } from "@/contexts/PremiumContext";
+import { useXP } from "@/contexts/XPContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+function XPProgressBar({ progress, color }: { progress: number; color: string }) {
+  const width = useSharedValue(0);
+
+  useEffect(() => {
+    width.value = withTiming(progress, { duration: 800 });
+  }, [progress]);
+
+  const barStyle = useAnimatedStyle(() => ({
+    width: `${width.value * 100}%`,
+    backgroundColor: color,
+  }));
+
+  return (
+    <View style={xpBarStyles.track}>
+      <Animated.View style={[xpBarStyles.fill, barStyle]} />
+    </View>
+  );
+}
+
+const xpBarStyles = StyleSheet.create({
+  track: {
+    height: 6,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 3,
+    overflow: "hidden",
+    marginTop: Spacing.sm,
+  },
+  fill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+});
 
 function SectionHeader({ icon, label }: { icon: keyof typeof Feather.glyphMap; label: string }) {
   return (
@@ -63,6 +102,8 @@ export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { entries, stats } = useDiary();
   const { isPremium, subscriptionTier } = usePremium();
+  const { getLevelInfo } = useXP();
+  const levelInfo = getLevelInfo();
 
   const handleEditProfile = () => {
     navigation.navigate("EditProfile");
@@ -141,6 +182,31 @@ export default function ProfileScreen() {
             </ThemedText>
           </View>
         </View>
+      </Animated.View>
+
+      <Animated.View entering={FadeIn.delay(75).duration(400)} style={styles.levelSection}>
+        <Card elevation={1} style={[styles.levelCard, { borderColor: levelInfo.current.color + "44" }]}>
+          <View style={styles.levelRow}>
+            <View style={[styles.levelBadge, { backgroundColor: levelInfo.current.color + "22", borderColor: levelInfo.current.color + "66" }]}>
+              <ThemedText style={[styles.levelBadgeText, { color: levelInfo.current.color }]}>
+                {levelInfo.current.name.toUpperCase()}
+              </ThemedText>
+            </View>
+            <View style={styles.levelXpWrap}>
+              <ThemedText style={[styles.levelXpValue, { color: levelInfo.current.color }]}>
+                {levelInfo.totalXp.toLocaleString()} XP
+              </ThemedText>
+              {levelInfo.next ? (
+                <ThemedText type="small" style={styles.levelXpNext}>
+                  {levelInfo.xpForNext ? levelInfo.xpForNext - levelInfo.xpInLevel : 0} XP to {levelInfo.next.name}
+                </ThemedText>
+              ) : (
+                <ThemedText type="small" style={styles.levelXpNext}>Max level reached</ThemedText>
+              )}
+            </View>
+          </View>
+          <XPProgressBar progress={levelInfo.progress} color={levelInfo.current.color} />
+        </Card>
       </Animated.View>
 
       <Animated.View entering={FadeIn.delay(100).duration(400)} style={styles.statsSection}>
@@ -283,6 +349,41 @@ const styles = StyleSheet.create({
   },
   freeText: {
     color: Colors.dark.textSecondary,
+  },
+  levelSection: {
+    marginBottom: Spacing["2xl"],
+  },
+  levelCard: {
+    padding: Spacing.lg,
+    borderWidth: 1,
+  },
+  levelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  levelBadge: {
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  levelBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+  },
+  levelXpWrap: {
+    flex: 1,
+  },
+  levelXpValue: {
+    fontSize: 16,
+    fontWeight: "700",
+    fontFamily: "Montserrat_700Bold",
+  },
+  levelXpNext: {
+    color: Colors.dark.textSecondary,
+    marginTop: 2,
   },
   statsSection: {
     marginBottom: Spacing["2xl"],

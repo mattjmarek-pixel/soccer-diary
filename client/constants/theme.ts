@@ -159,3 +159,42 @@ export const SkillColors: Record<SkillCategory, string> = {
   Fitness: "#CE93D8",
   Tactics: "#FFD740",
 };
+
+export const LEVELS = [
+  { name: "Rookie", minXp: 0, color: "#B0B0B0" },
+  { name: "Prospect", minXp: 200, color: "#8BC34A" },
+  { name: "Amateur", minXp: 600, color: "#40C4FF" },
+  { name: "Semi-Pro", minXp: 1500, color: "#FF9800" },
+  { name: "Professional", minXp: 3500, color: "#CE93D8" },
+  { name: "Legend", minXp: 7500, color: "#FFD600" },
+] as const;
+
+export type LevelName = (typeof LEVELS)[number]["name"];
+
+export function computeEntryXp(entry: {
+  duration: number;
+  reflection: string;
+  videoUri?: string;
+}): number {
+  let xp = 20;
+  xp += Math.min(entry.duration, 60);
+  if (entry.reflection && entry.reflection.length > 50) xp += 15;
+  if (entry.videoUri) xp += 20;
+  return xp;
+}
+
+export function getLevelInfo(totalXp: number) {
+  let currentIdx = 0;
+  for (let i = LEVELS.length - 1; i >= 0; i--) {
+    if (totalXp >= LEVELS[i].minXp) {
+      currentIdx = i;
+      break;
+    }
+  }
+  const current = LEVELS[currentIdx];
+  const next = currentIdx < LEVELS.length - 1 ? LEVELS[currentIdx + 1] : null;
+  const xpInLevel = totalXp - current.minXp;
+  const xpForNext = next ? next.minXp - current.minXp : null;
+  const progress = xpForNext ? Math.min(xpInLevel / xpForNext, 1) : 1;
+  return { current, next, xpInLevel, xpForNext, progress, totalXp };
+}

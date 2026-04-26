@@ -32,8 +32,9 @@ import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { MoodSlider } from "@/components/MoodSlider";
 import { SkillSelector } from "@/components/SkillSelector";
-import { Colors, Spacing, BorderRadius, SkillCategory, MoodColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, SkillCategory, MoodColors, computeEntryXp } from "@/constants/theme";
 import { useDiary, DiaryEntry } from "@/contexts/DiaryContext";
+import { useXP } from "@/contexts/XPContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NewEntryRouteProp = RouteProp<RootStackParamList, "NewEntry">;
@@ -442,6 +443,7 @@ export default function NewEntryScreen() {
   const navigation = useNavigation<NewEntryNavigationProp>();
   const route = useRoute<NewEntryRouteProp>();
   const { addEntry, updateEntry } = useDiary();
+  const { awardXp } = useXP();
 
   const existingEntry = route.params?.entry;
   const isEditing = !!existingEntry;
@@ -461,7 +463,26 @@ export default function NewEntryScreen() {
   const [currentStep, setCurrentStep] = useState(0);
   const [navDir, setNavDir] = useState<1 | -1>(1);
   const [isCelebrating, setIsCelebrating] = useState(false);
+  const [xpFlashAmount, setXpFlashAmount] = useState(0);
   const savedRef = useRef(false);
+  const xpFlashOpacity = useSharedValue(0);
+  const xpFlashTranslateY = useSharedValue(0);
+
+  const xpFlashStyle = useAnimatedStyle(() => ({
+    opacity: xpFlashOpacity.value,
+    transform: [{ translateY: xpFlashTranslateY.value }],
+  }));
+
+  useEffect(() => {
+    if (xpFlashAmount <= 0) return;
+    xpFlashOpacity.value = 0;
+    xpFlashTranslateY.value = 0;
+    xpFlashOpacity.value = withSequence(
+      withTiming(1, { duration: 150 }),
+      withDelay(500, withTiming(0, { duration: 300 }))
+    );
+    xpFlashTranslateY.value = withTiming(-44, { duration: 950 });
+  }, [xpFlashAmount]);
 
   const hasData = useCallback(() => {
     return (
@@ -554,17 +575,20 @@ export default function NewEntryScreen() {
 
     setIsSaving(true);
     try {
-      const entryData = { date, mood, duration: mins, reflection, skills, videoUri: mediaUri, mediaType };
+      const xp = computeEntryXp({ duration: mins, reflection, videoUri: mediaUri });
+      const entryData = { date, mood, duration: mins, reflection, skills, videoUri: mediaUri, mediaType, xpAwarded: xp };
       if (isEditing && existingEntry) {
         await updateEntry(existingEntry.id, entryData);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         navigation.goBack();
       } else {
         await addEntry(entryData);
+        await awardXp(xp);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         savedRef.current = true;
-        setIsCelebrating(true);
+        setXpFlashAmount(xp);
+        setTimeout(() => setIsCelebrating(true), 750);
       }
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -727,6 +751,11 @@ export default function NewEntryScreen() {
         </Animated.View>
 
         <View style={[wizardStyles.footer, { paddingBottom: insets.bottom + Spacing.xl }]}>
+          {xpFlashAmount > 0 ? (
+            <Animated.View style={[wizardStyles.xpFlash, xpFlashStyle]} pointerEvents="none">
+              <ThemedText style={wizardStyles.xpFlashText}>+{xpFlashAmount} XP</ThemedText>
+            </Animated.View>
+          ) : null}
           {isLastStep ? (
             <Button onPress={handleSave} disabled={isSaving} testID="button-save-entry">
               {isSaving ? <ActivityIndicator color={Colors.dark.buttonText} /> : "Save Session"}
@@ -1051,6 +1080,16 @@ const wizardStyles = StyleSheet.create({
   skipLabel: {
     color: Colors.dark.textSecondary,
     textDecorationLine: "underline",
+  },
+  xpFlash: {
+    alignSelf: "center",
+    marginBottom: Spacing.sm,
+  },
+  xpFlashText: {
+    fontSize: 20,
+    fontWeight: "700",
+    fontFamily: "Montserrat_700Bold",
+    color: Colors.dark.primary,
   },
 });
 

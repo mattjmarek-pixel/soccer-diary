@@ -17,6 +17,7 @@ export interface DiaryEntry {
   }[];
   videoUri?: string;
   mediaType?: "photo" | "video";
+  xpAwarded?: number;
   createdAt: string;
   updatedAt: string;
 }

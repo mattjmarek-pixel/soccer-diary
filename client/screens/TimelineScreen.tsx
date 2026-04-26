@@ -12,12 +12,14 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
+import Svg, { Circle } from "react-native-svg";
 
 import { DiaryEntryCard } from "@/components/DiaryEntryCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useDiary, DiaryEntry, DiaryStats } from "@/contexts/DiaryContext";
+import { useXP } from "@/contexts/XPContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const formatMinutes = (minutes: number): string => {
@@ -27,7 +29,44 @@ const formatMinutes = (minutes: number): string => {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 };
 
+const XP_RING_SIZE = 44;
+const XP_RING_STROKE = 4;
+const XP_RING_R = (XP_RING_SIZE - XP_RING_STROKE) / 2;
+const XP_RING_CIRCUMFERENCE = 2 * Math.PI * XP_RING_R;
+
+function XpRing({ progress, color }: { progress: number; color: string }) {
+  const dashOffset = XP_RING_CIRCUMFERENCE * (1 - Math.min(progress, 1));
+  return (
+    <Svg width={XP_RING_SIZE} height={XP_RING_SIZE}>
+      <Circle
+        cx={XP_RING_SIZE / 2}
+        cy={XP_RING_SIZE / 2}
+        r={XP_RING_R}
+        stroke={color + "33"}
+        strokeWidth={XP_RING_STROKE}
+        fill="none"
+      />
+      <Circle
+        cx={XP_RING_SIZE / 2}
+        cy={XP_RING_SIZE / 2}
+        r={XP_RING_R}
+        stroke={color}
+        strokeWidth={XP_RING_STROKE}
+        fill="none"
+        strokeDasharray={XP_RING_CIRCUMFERENCE}
+        strokeDashoffset={dashOffset}
+        strokeLinecap="round"
+        rotation="-90"
+        origin={`${XP_RING_SIZE / 2}, ${XP_RING_SIZE / 2}`}
+      />
+    </Svg>
+  );
+}
+
 function WeeklyBanner({ entries, stats }: { entries: DiaryEntry[]; stats: DiaryStats }) {
+  const { getLevelInfo } = useXP();
+  const levelInfo = getLevelInfo();
+
   const weeklyData = useMemo(() => {
     const now = new Date();
     const startOfWeek = new Date(now);
@@ -78,6 +117,20 @@ function WeeklyBanner({ entries, stats }: { entries: DiaryEntry[]; stats: DiaryS
             {formatMinutes(weeklyData.minutes)}
           </ThemedText>
           <ThemedText style={styles.bannerLabel}>Weekly Time</ThemedText>
+        </View>
+      </View>
+
+      <View style={styles.xpRow}>
+        <XpRing progress={levelInfo.progress} color={levelInfo.current.color} />
+        <View style={styles.xpTextWrap}>
+          <ThemedText style={[styles.xpLevelName, { color: levelInfo.current.color }]}>
+            {levelInfo.current.name}
+          </ThemedText>
+          <ThemedText style={styles.xpSubtext}>
+            {levelInfo.next
+              ? `${levelInfo.totalXp.toLocaleString()} / ${levelInfo.next.minXp.toLocaleString()} XP`
+              : `${levelInfo.totalXp.toLocaleString()} XP · Max level`}
+          </ThemedText>
         </View>
       </View>
     </Animated.View>
@@ -167,7 +220,7 @@ export default function TimelineScreen() {
       data={entries}
       renderItem={renderItem}
       keyExtractor={(item) => item.id}
-      ListHeaderComponent={entries.length > 0 ? renderHeader : null}
+      ListHeaderComponent={renderHeader}
       ListEmptyComponent={renderEmpty}
       refreshControl={
         <RefreshControl
@@ -235,5 +288,27 @@ const styles = StyleSheet.create({
     width: 1,
     height: 48,
     backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  xpRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.backgroundSecondary,
+  },
+  xpTextWrap: {
+    flex: 1,
+  },
+  xpLevelName: {
+    fontSize: 14,
+    fontWeight: "700",
+    fontFamily: "Montserrat_700Bold",
+  },
+  xpSubtext: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    marginTop: 2,
   },
 });
