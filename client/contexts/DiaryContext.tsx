@@ -160,9 +160,9 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
     const existingEntry = entries[entryIndex];
 
     const newXpAwarded = computeEntryXp({
-      duration: updates.duration ?? existingEntry.duration,
-      reflection: updates.reflection ?? existingEntry.reflection,
-      mediaType: updates.mediaType ?? existingEntry.mediaType,
+      duration: "duration" in updates ? (updates.duration as number) : existingEntry.duration,
+      reflection: "reflection" in updates ? updates.reflection : existingEntry.reflection,
+      mediaType: "mediaType" in updates ? updates.mediaType : existingEntry.mediaType,
     });
 
     const xpDelta = newXpAwarded - (existingEntry.xpAwarded ?? 0);
