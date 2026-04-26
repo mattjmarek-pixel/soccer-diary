@@ -150,3 +150,12 @@ export const SkillCategories = [
 ] as const;
 
 export type SkillCategory = (typeof SkillCategories)[number];
+
+export const SkillColors: Record<SkillCategory, string> = {
+  Dribbling: "#00E676",
+  Shooting: "#FF5252",
+  Passing: "#40C4FF",
+  "First Touch": "#FF9800",
+  Fitness: "#CE93D8",
+  Tactics: "#FFD740",
+};

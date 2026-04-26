@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { View, StyleSheet, Pressable, TextInput } from "react-native";
-import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Animated, {
   useAnimatedStyle,
@@ -12,7 +11,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius, SkillCategories, SkillCategory } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, SkillCategories, SkillCategory, SkillColors } from "@/constants/theme";
 
 interface SkillData {
   category: SkillCategory;
@@ -36,6 +35,7 @@ function SkillChip({
   onPress: () => void;
 }) {
   const scale = useSharedValue(1);
+  const color = SkillColors[category];
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -57,24 +57,19 @@ function SkillChip({
       style={[
         styles.chip,
         {
-          backgroundColor: isSelected
-            ? Colors.dark.primary
-            : Colors.dark.backgroundSecondary,
+          backgroundColor: isSelected ? color + "22" : Colors.dark.backgroundSecondary,
+          borderWidth: isSelected ? 1.5 : 0,
+          borderColor: isSelected ? color : "transparent",
         },
         animatedStyle,
       ]}
     >
-      <Feather
-        name={isSelected ? "check" : "plus"}
-        size={14}
-        color={isSelected ? Colors.dark.buttonText : Colors.dark.textSecondary}
-        style={styles.chipIcon}
-      />
+      <View style={[styles.chipDot, { backgroundColor: color }]} />
       <ThemedText
         type="small"
         style={{
-          color: isSelected ? Colors.dark.buttonText : Colors.dark.text,
-          fontWeight: isSelected ? "600" : "400",
+          color: isSelected ? color : Colors.dark.text,
+          fontWeight: isSelected ? "700" : "400",
         }}
       >
         {category}
@@ -163,7 +158,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.full,
   },
-  chipIcon: {
+  chipDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     marginRight: Spacing.xs,
   },
   notesContainer: {

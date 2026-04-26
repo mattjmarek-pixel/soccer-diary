@@ -177,20 +177,31 @@ function CelebrationOverlay({ onDismiss }: { onDismiss: () => void }) {
   );
 }
 
-function WizardProgressBar({ step, total }: { step: number; total: number }) {
-  const progress = useSharedValue(0);
+function ProgressSegment({ active }: { active: boolean }) {
+  const opacity = useSharedValue(active ? 1 : 0.25);
+  const scaleY = useSharedValue(active ? 1.5 : 1);
 
   useEffect(() => {
-    progress.value = withSpring((step + 1) / total, { damping: 16, stiffness: 120 });
-  }, [step]);
+    opacity.value = withSpring(active ? 1 : 0.25, { damping: 14, stiffness: 130 });
+    scaleY.value = withSpring(active ? 1.5 : 1, { damping: 14, stiffness: 130 });
+  }, [active]);
 
-  const fillStyle = useAnimatedStyle(() => ({
-    width: `${progress.value * 100}%`,
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scaleY: scaleY.value }],
   }));
 
   return (
+    <Animated.View style={[progressStyles.segment, style]} />
+  );
+}
+
+function WizardProgressBar({ step, total }: { step: number; total: number }) {
+  return (
     <View style={progressStyles.track}>
-      <Animated.View style={[progressStyles.fill, fillStyle]} />
+      {Array.from({ length: total }, (_, i) => (
+        <ProgressSegment key={i} active={i <= step} />
+      ))}
     </View>
   );
 }
@@ -782,14 +793,13 @@ const celebrationStyles = StyleSheet.create({
 
 const progressStyles = StyleSheet.create({
   track: {
-    height: 3,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    flexDirection: "row",
+    gap: 5,
     marginHorizontal: Spacing.lg,
-    borderRadius: 2,
     marginBottom: Spacing.xs,
-    overflow: "hidden",
   },
-  fill: {
+  segment: {
+    flex: 1,
     height: 3,
     backgroundColor: Colors.dark.primary,
     borderRadius: 2,
