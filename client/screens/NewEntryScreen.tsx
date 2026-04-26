@@ -167,7 +167,7 @@ function CelebrationOverlay({ onDismiss }: { onDismiss: () => void }) {
           <Feather name="check" size={34} color={Colors.dark.buttonText} />
         </View>
         <ThemedText type="h3" style={celebrationStyles.title}>
-          Session Saved!
+          Great session!
         </ThemedText>
         <ThemedText type="small" style={celebrationStyles.subtitle}>
           Keep it up — every session counts.
