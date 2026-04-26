@@ -196,5 +196,5 @@ export function getLevelInfo(totalXp: number) {
   const xpInLevel = totalXp - current.minXp;
   const xpForNext = next ? next.minXp - current.minXp : null;
   const progress = xpForNext ? Math.min(xpInLevel / xpForNext, 1) : 1;
-  return { current, next, xpInLevel, xpForNext, progress, totalXp };
+  return { current, next, xpInLevel, xpForNext, progress, totalXp, currentIdx };
 }

@@ -275,21 +275,20 @@ const levelStyles = StyleSheet.create({
 export function XPProvider({ children }: { children: ReactNode }) {
   const { totalXp } = useDiary();
   const [levelUpInfo, setLevelUpInfo] = useState<{ name: string; color: string } | null>(null);
-  const prevLevelNameRef = useRef<string | null>(null);
+  const prevLevelIdxRef = useRef<number | null>(null);
   const isInitialized = useRef(false);
 
   useEffect(() => {
-    const currentLevelName = getLevelInfo(totalXp).current.name;
+    const { currentIdx, current } = getLevelInfo(totalXp);
     if (!isInitialized.current) {
-      prevLevelNameRef.current = currentLevelName;
+      prevLevelIdxRef.current = currentIdx;
       isInitialized.current = true;
       return;
     }
-    if (prevLevelNameRef.current !== null && currentLevelName !== prevLevelNameRef.current) {
-      const info = getLevelInfo(totalXp);
-      setLevelUpInfo({ name: info.current.name, color: info.current.color });
+    if (prevLevelIdxRef.current !== null && currentIdx > prevLevelIdxRef.current) {
+      setLevelUpInfo({ name: current.name, color: current.color });
     }
-    prevLevelNameRef.current = currentLevelName;
+    prevLevelIdxRef.current = currentIdx;
   }, [totalXp]);
 
   const getLevelInfoForUser = useCallback(() => getLevelInfo(totalXp), [totalXp]);
