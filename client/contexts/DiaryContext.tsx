@@ -85,15 +85,12 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
         AsyncStorage.getItem(`${XP_STORAGE_KEY}_${user.id}`),
       ]);
 
+      let resolvedEntries: DiaryEntry[] = [];
       if (entriesData) {
         const allEntries: DiaryEntry[] = JSON.parse(entriesData);
-        const userEntries = allEntries
+        resolvedEntries = allEntries
           .filter((e) => e.userId === user.id)
-          .map((e) => ({ ...e, xpAwarded: e.xpAwarded ?? 0 }))
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        setEntries(userEntries);
-      } else {
-        setEntries([]);
       }
 
       let xp = 0;
@@ -106,7 +103,34 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
         } catch {
           xp = parseInt(xpData, 10) || 0;
         }
+        resolvedEntries = resolvedEntries.map((e) => ({ ...e, xpAwarded: e.xpAwarded ?? 0 }));
+      } else if (resolvedEntries.length > 0) {
+        // One-time XP backfill for users with entries but no XP record
+        resolvedEntries = resolvedEntries.map((e) => ({
+          ...e,
+          xpAwarded: e.xpAwarded && e.xpAwarded > 0
+            ? e.xpAwarded
+            : computeEntryXp({ duration: e.duration, reflection: e.reflection, mediaType: e.mediaType }),
+        }));
+        xp = resolvedEntries.reduce((sum, e) => sum + (e.xpAwarded ?? 0), 0);
+        // Persist backfilled entries and XP asynchronously
+        AsyncStorage.getItem(DIARY_STORAGE_KEY).then((raw) => {
+          const all: DiaryEntry[] = raw ? JSON.parse(raw) : [];
+          const others = all.filter((e) => e.userId !== user.id);
+          AsyncStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify([...others, ...resolvedEntries])).catch(
+            (e) => console.warn("XP backfill entries save failed:", e)
+          );
+        }).catch((e) => console.warn("XP backfill read failed:", e));
+        const lvl = getLevelInfo(xp);
+        AsyncStorage.setItem(
+          `${XP_STORAGE_KEY}_${user.id}`,
+          JSON.stringify({ totalXp: xp, currentLevel: lvl.current.name })
+        ).catch((e) => console.warn("XP backfill XP save failed:", e));
+      } else {
+        resolvedEntries = resolvedEntries.map((e) => ({ ...e, xpAwarded: e.xpAwarded ?? 0 }));
       }
+
+      setEntries(resolvedEntries);
       totalXpRef.current = xp;
       setTotalXp(xp);
     } catch {
@@ -173,7 +197,7 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
     const existingEntry = entries[entryIndex];
 
     const newXpAwarded = computeEntryXp({
-      duration: "duration" in updates ? (updates.duration as number) : existingEntry.duration,
+      duration: "duration" in updates ? (updates.duration ?? existingEntry.duration) : existingEntry.duration,
       reflection: "reflection" in updates ? (updates.reflection ?? existingEntry.reflection) : existingEntry.reflection,
       mediaType: "mediaType" in updates ? updates.mediaType : existingEntry.mediaType,
     });
