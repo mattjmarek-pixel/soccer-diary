@@ -562,6 +562,7 @@ export default function NewEntryScreen() {
       } else {
         await addEntry(entryData);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         savedRef.current = true;
         setIsCelebrating(true);
       }
