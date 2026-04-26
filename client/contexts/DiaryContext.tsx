@@ -36,6 +36,7 @@ interface DiaryContextType {
   isLoading: boolean;
   stats: DiaryStats;
   totalXp: number;
+  currentLevel: string;
   addEntry: (entry: AddEntryInput) => Promise<DiaryEntry>;
   updateEntry: (id: string, updates: UpdateEntryInput) => Promise<{ xpDelta: number }>;
   deleteEntry: (id: string) => Promise<void>;
@@ -260,6 +261,7 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
         isLoading,
         stats: calculateStats(),
         totalXp,
+        currentLevel: getLevelInfo(totalXp).current.name,
         addEntry,
         updateEntry,
         deleteEntry,
