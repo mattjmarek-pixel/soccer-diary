@@ -123,6 +123,7 @@ export default function TimelineScreen() {
           reflection={item.reflection}
           skills={item.skills}
           videoUri={item.videoUri}
+          mediaType={item.mediaType}
           onPress={() => handleEntryPress(item.id)}
         />
       </Animated.View>

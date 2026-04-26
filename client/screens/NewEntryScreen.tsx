@@ -455,7 +455,7 @@ export default function NewEntryScreen() {
   );
   const [mediaUri, setMediaUri] = useState<string | undefined>(existingEntry?.videoUri);
   const [mediaType, setMediaType] = useState<"photo" | "video" | undefined>(
-    existingEntry?.videoUri ? "video" : undefined
+    existingEntry?.mediaType ?? (existingEntry?.videoUri ? "video" : undefined)
   );
   const [isSaving, setIsSaving] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -548,7 +548,7 @@ export default function NewEntryScreen() {
 
     setIsSaving(true);
     try {
-      const entryData = { date, mood, duration: mins, reflection, skills, videoUri: mediaUri };
+      const entryData = { date, mood, duration: mins, reflection, skills, videoUri: mediaUri, mediaType };
       if (isEditing && existingEntry) {
         await updateEntry(existingEntry.id, entryData);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

@@ -18,6 +18,7 @@ interface ButtonProps {
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
   variant?: "primary" | "secondary" | "outline";
+  testID?: string;
 }
 
 const springConfig: WithSpringConfig = {
@@ -36,6 +37,7 @@ export function Button({
   style,
   disabled = false,
   variant = "primary",
+  testID,
 }: ButtonProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
@@ -88,6 +90,7 @@ export function Button({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled}
+      testID={testID}
       style={[
         styles.button,
         {

@@ -17,6 +17,7 @@ interface DiaryEntryCardProps {
   reflection: string;
   skills: { category: SkillCategory; notes: string }[];
   videoUri?: string;
+  mediaType?: "photo" | "video";
   onPress: () => void;
 }
 
@@ -37,6 +38,7 @@ export function DiaryEntryCard({
   reflection,
   skills,
   videoUri,
+  mediaType,
   onPress,
 }: DiaryEntryCardProps) {
   const scale = useSharedValue(1);
@@ -92,9 +94,13 @@ export function DiaryEntryCard({
           </View>
           {videoUri ? (
             <View style={styles.metaItem}>
-              <Feather name="video" size={13} color={Colors.dark.primary} />
+              <Feather
+                name={mediaType === "photo" ? "image" : "video"}
+                size={13}
+                color={Colors.dark.primary}
+              />
               <ThemedText type="small" style={[styles.metaText, { color: Colors.dark.primary }]}>
-                Video
+                {mediaType === "photo" ? "Photo" : "Video"}
               </ThemedText>
             </View>
           ) : null}

@@ -18,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import * as Sharing from "expo-sharing";
 import { captureRef } from "react-native-view-shot";
 import { VideoView, useVideoPlayer } from "expo-video";
+import { Image } from "expo-image";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
@@ -215,9 +216,19 @@ export default function DiaryDetailScreen() {
       {entry.videoUri ? (
         <View style={styles.section}>
           <ThemedText type="small" style={styles.sectionLabel}>
-            Video
+            {entry.mediaType === "photo" ? "Photo" : "Video"}
           </ThemedText>
-          <VideoPlayer videoUri={entry.videoUri} />
+          {entry.mediaType === "photo" ? (
+            <Card elevation={1} style={styles.videoCard}>
+              <Image
+                source={{ uri: entry.videoUri }}
+                style={styles.video}
+                contentFit="cover"
+              />
+            </Card>
+          ) : (
+            <VideoPlayer videoUri={entry.videoUri} />
+          )}
         </View>
       ) : null}
 
