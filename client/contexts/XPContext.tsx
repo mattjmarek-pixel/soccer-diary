@@ -12,9 +12,7 @@ import {
   StyleSheet,
   Pressable,
   Share,
-  Platform,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -27,15 +25,10 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius, getLevelInfo, LEVELS } from "@/constants/theme";
-import { useAuth } from "@/contexts/AuthContext";
-
-const XP_STORAGE_KEY = "@soccer_diary_xp";
+import { Colors, Spacing, BorderRadius, getLevelInfo } from "@/constants/theme";
+import { useDiary } from "@/contexts/DiaryContext";
 
 interface XPContextType {
-  totalXp: number;
-  awardXp: (amount: number) => Promise<void>;
-  deductXp: (amount: number) => Promise<void>;
   getLevelInfo: () => ReturnType<typeof getLevelInfo>;
 }
 
@@ -280,76 +273,29 @@ const levelStyles = StyleSheet.create({
 });
 
 export function XPProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  const [totalXp, setTotalXp] = useState(0);
+  const { totalXp } = useDiary();
   const [levelUpInfo, setLevelUpInfo] = useState<{ name: string; color: string } | null>(null);
-  const totalXpRef = useRef(0);
   const prevLevelNameRef = useRef<string | null>(null);
   const isInitialized = useRef(false);
 
-  const storageKey = user ? `${XP_STORAGE_KEY}_${user.id}` : null;
-  const storageKeyRef = useRef(storageKey);
-  storageKeyRef.current = storageKey;
-
   useEffect(() => {
-    const loadXp = async () => {
-      if (!storageKey) {
-        totalXpRef.current = 0;
-        setTotalXp(0);
-        prevLevelNameRef.current = null;
-        isInitialized.current = false;
-        return;
-      }
-      try {
-        const data = await AsyncStorage.getItem(storageKey);
-        const xp = data ? parseInt(data, 10) : 0;
-        totalXpRef.current = xp;
-        setTotalXp(xp);
-        prevLevelNameRef.current = getLevelInfo(xp).current.name;
-      } catch {
-        totalXpRef.current = 0;
-        setTotalXp(0);
-      }
+    const currentLevelName = getLevelInfo(totalXp).current.name;
+    if (!isInitialized.current) {
+      prevLevelNameRef.current = currentLevelName;
       isInitialized.current = true;
-    };
-    loadXp();
-  }, [storageKey]);
-
-  const saveXp = (xp: number) => {
-    if (!storageKeyRef.current) return;
-    AsyncStorage.setItem(storageKeyRef.current, xp.toString()).catch(() => {});
-  };
-
-  const awardXp = useCallback(async (amount: number) => {
-    if (amount <= 0) return;
-    const prev = totalXpRef.current;
-    const newXp = prev + amount;
-    totalXpRef.current = newXp;
-    setTotalXp(newXp);
-    saveXp(newXp);
-    if (isInitialized.current && prevLevelNameRef.current !== null) {
-      const prevInfo = getLevelInfo(prev);
-      const newInfo = getLevelInfo(newXp);
-      if (newInfo.current.name !== prevInfo.current.name) {
-        setLevelUpInfo({ name: newInfo.current.name, color: newInfo.current.color });
-      }
-      prevLevelNameRef.current = newInfo.current.name;
+      return;
     }
-  }, []);
-
-  const deductXp = useCallback(async (amount: number) => {
-    if (amount <= 0) return;
-    const newXp = Math.max(0, totalXpRef.current - amount);
-    totalXpRef.current = newXp;
-    setTotalXp(newXp);
-    saveXp(newXp);
-    prevLevelNameRef.current = getLevelInfo(newXp).current.name;
-  }, []);
+    if (prevLevelNameRef.current !== null && currentLevelName !== prevLevelNameRef.current) {
+      const info = getLevelInfo(totalXp);
+      setLevelUpInfo({ name: info.current.name, color: info.current.color });
+    }
+    prevLevelNameRef.current = currentLevelName;
+  }, [totalXp]);
 
   const getLevelInfoForUser = useCallback(() => getLevelInfo(totalXp), [totalXp]);
 
   return (
-    <XPContext.Provider value={{ totalXp, awardXp, deductXp, getLevelInfo: getLevelInfoForUser }}>
+    <XPContext.Provider value={{ getLevelInfo: getLevelInfoForUser }}>
       {children}
       {levelUpInfo ? (
         <LevelUpModal

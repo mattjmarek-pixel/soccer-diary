@@ -32,9 +32,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { MoodSlider } from "@/components/MoodSlider";
 import { SkillSelector } from "@/components/SkillSelector";
-import { Colors, Spacing, BorderRadius, SkillCategory, MoodColors, computeEntryXp } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, SkillCategory, MoodColors } from "@/constants/theme";
 import { useDiary, DiaryEntry } from "@/contexts/DiaryContext";
-import { useXP } from "@/contexts/XPContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NewEntryRouteProp = RouteProp<RootStackParamList, "NewEntry">;
@@ -443,7 +442,6 @@ export default function NewEntryScreen() {
   const navigation = useNavigation<NewEntryNavigationProp>();
   const route = useRoute<NewEntryRouteProp>();
   const { addEntry, updateEntry } = useDiary();
-  const { awardXp, deductXp } = useXP();
 
   const existingEntry = route.params?.entry;
   const isEditing = !!existingEntry;
@@ -575,26 +573,17 @@ export default function NewEntryScreen() {
 
     setIsSaving(true);
     try {
-      const xp = computeEntryXp({ duration: mins, reflection, videoUri: mediaUri });
-      const entryData = { date, mood, duration: mins, reflection, skills, videoUri: mediaUri, mediaType, xpAwarded: xp };
+      const entryData = { date, mood, duration: mins, reflection, skills, videoUri: mediaUri, mediaType };
       if (isEditing && existingEntry) {
-        const prevXp = existingEntry.xpAwarded ?? 0;
-        const delta = xp - prevXp;
         await updateEntry(existingEntry.id, entryData);
-        if (delta > 0) {
-          await awardXp(delta);
-        } else if (delta < 0) {
-          await deductXp(Math.abs(delta));
-        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         navigation.goBack();
       } else {
-        await addEntry(entryData);
-        await awardXp(xp);
+        const savedEntry = await addEntry(entryData);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         savedRef.current = true;
-        setXpFlashAmount(xp);
+        setXpFlashAmount(savedEntry.xpAwarded);
         setTimeout(() => setIsCelebrating(true), 750);
       }
     } catch {

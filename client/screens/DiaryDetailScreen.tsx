@@ -24,7 +24,6 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius, MoodColors } from "@/constants/theme";
 import { useDiary } from "@/contexts/DiaryContext";
-import { useXP } from "@/contexts/XPContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type DiaryDetailRouteProp = RouteProp<RootStackParamList, "DiaryDetail">;
@@ -57,7 +56,6 @@ export default function DiaryDetailScreen() {
   const { getEntry, deleteEntry } = useDiary();
   const shareCardRef = useRef<View>(null);
 
-  const { deductXp } = useXP();
   const entry = getEntry(route.params.entryId);
 
   const shareText = entry
@@ -132,9 +130,6 @@ export default function DiaryDetailScreen() {
           onPress: async () => {
             if (entry) {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              if (entry.xpAwarded) {
-                await deductXp(entry.xpAwarded);
-              }
               await deleteEntry(entry.id);
               navigation.goBack();
             }
