@@ -19,11 +19,12 @@ Preferred communication style: Simple, everyday language.
 - **Path aliases**: `@/` maps to `./client/`, `@shared/` maps to `./shared/`
 - **Navigation**: React Navigation v7 with a root native stack navigator wrapping a bottom tab navigator
   - **Root Stack**: Onboarding → Auth → Main (tabs), plus modal screens (NewEntry, DiaryDetail, EditProfile, Insights, Templates, Upgrade)
+  - **NewEntry modal**: 5-step wizard for new entries (Mood → Duration → Skills → Notes → Media) with animated progress bar and confetti celebration overlay on save; falls back to single-form layout for editing. `headerShown` is false for wizard (custom header) and true for edit mode.
   - **Bottom Tabs**: Timeline, Stats, Achievements (Badges), Profile — with a floating action button in the center for creating new entries
 - **State Management**: React Context API (AuthContext, DiaryContext, PremiumContext) — no Redux or Zustand
 - **Data Persistence**: AsyncStorage for all client-side data (user auth, diary entries, premium status, onboarding state). There is no server-side diary storage — all entries live on-device.
 - **Styling**: Custom theme system in `client/constants/theme.ts` with dark-mode-only design (green #00E676 primary, dark charcoal backgrounds). Montserrat font family loaded via expo-font.
-- **Animations**: React Native Reanimated for press animations, list entry animations, spring effects
+- **Animations**: React Native Reanimated for press animations, list entry animations, spring effects, confetti particles
 - **Key Libraries**: expo-haptics (tactile feedback), expo-image-picker, expo-video, expo-sharing, react-native-view-shot, react-native-svg (charts), expo-blur, react-native-keyboard-controller
 
 ### Backend (Express.js)

@@ -70,7 +70,8 @@ export default function RootStackNavigator() {
         component={NewEntryScreen}
         options={({ navigation, route }) => ({
           presentation: "modal",
-          headerTitle: route.params?.entry ? "Edit Entry" : "New Entry",
+          headerShown: !!route.params?.entry,
+          headerTitle: "Edit Entry",
           headerLeft: () => (
             <HeaderButton onPress={() => navigation.goBack()}>
               <Feather name="x" size={24} color={Colors.dark.text} />
