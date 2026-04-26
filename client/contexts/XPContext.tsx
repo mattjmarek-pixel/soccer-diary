@@ -165,7 +165,7 @@ function LevelUpModal({
       if (!isAvailable) return;
       const uri = await captureRef(cardRef, { format: "png", quality: 1 });
       await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: `I just reached ${levelName} on Soccer Diary!` });
-    } catch {}
+    } catch (e) { console.warn("LevelUpModal share failed:", e); }
   };
 
   return (
@@ -296,12 +296,14 @@ export function XPProvider({ children }: { children: ReactNode }) {
       prevLevelIdxRef.current = currentIdx;
       return;
     }
+    let timer: ReturnType<typeof setTimeout> | undefined;
     if (currentIdx > prevLevelIdxRef.current) {
-      setTimeout(() => {
+      timer = setTimeout(() => {
         setLevelUpInfo({ name: current.name, color: current.color });
       }, 1500);
     }
     prevLevelIdxRef.current = currentIdx;
+    return () => { if (timer !== undefined) clearTimeout(timer); };
   }, [totalXp, isLoading]);
 
   const getLevelInfoForUser = useCallback(() => getDiaryLevelInfo(), [getDiaryLevelInfo]);

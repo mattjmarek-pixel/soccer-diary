@@ -66,7 +66,7 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
     if (!xpStorageKeyRef.current) return;
     const { current: lvl } = getLevelInfo(xp);
     const payload = JSON.stringify({ totalXp: xp, currentLevel: lvl.name });
-    AsyncStorage.setItem(xpStorageKeyRef.current, payload).catch(() => {});
+    AsyncStorage.setItem(xpStorageKeyRef.current, payload).catch((e) => console.warn("saveXp failed:", e));
   };
 
   const loadEntries = useCallback(async () => {
