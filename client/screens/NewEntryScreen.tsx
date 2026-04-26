@@ -5,9 +5,7 @@ import {
   TextInput,
   Alert,
   Pressable,
-  ScrollView,
   ActivityIndicator,
-  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -22,7 +20,11 @@ import Animated, {
   withTiming,
   withDelay,
   withSequence,
-  FadeIn,
+  runOnJS,
+  SlideInRight,
+  SlideInLeft,
+  SlideOutLeft,
+  SlideOutRight,
 } from "react-native-reanimated";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -126,12 +128,19 @@ function CelebrationOverlay({ onDismiss }: { onDismiss: () => void }) {
   const scale = useSharedValue(0);
   const opacity = useSharedValue(0);
 
+  const triggerDismiss = useCallback(() => {
+    opacity.value = withTiming(0, { duration: 280 });
+    scale.value = withSpring(0, { damping: 14, stiffness: 220 }, () => {
+      runOnJS(onDismiss)();
+    });
+  }, [onDismiss]);
+
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 180 });
     scale.value = withSpring(1, { damping: 11, stiffness: 160 });
-    const timer = setTimeout(onDismiss, 1900);
+    const timer = setTimeout(triggerDismiss, 1600);
     return () => clearTimeout(timer);
-  }, []);
+  }, [triggerDismiss]);
 
   const cardStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -343,51 +352,66 @@ function NotesStep({ value, onChange }: { value: string; onChange: (v: string) =
 }
 
 function MediaStep({
-  videoUri,
-  onPickVideo,
+  mediaUri,
+  mediaType,
+  onPickFromLibrary,
+  onTakePhoto,
   onRecordVideo,
-  onRemoveVideo,
+  onRemoveMedia,
 }: {
-  videoUri?: string;
-  onPickVideo: () => void;
+  mediaUri?: string;
+  mediaType?: "photo" | "video";
+  onPickFromLibrary: () => void;
+  onTakePhoto: () => void;
   onRecordVideo: () => void;
-  onRemoveVideo: () => void;
+  onRemoveMedia: () => void;
 }) {
+  const iconName = mediaType === "video" ? "video" : "image";
+  const label = mediaType === "video" ? "Video attached" : "Photo attached";
+
   return (
     <View style={stepStyles.container}>
       <ThemedText type="h3" style={stepStyles.title}>
-        Attach a clip
+        Attach media
       </ThemedText>
       <ThemedText type="small" style={stepStyles.subtitle}>
-        Record or upload a short video from your session. (Optional)
+        Add a photo or video from your session. (Optional)
       </ThemedText>
-      {videoUri ? (
+      {mediaUri ? (
         <View style={stepStyles.videoAttached}>
           <View style={stepStyles.videoAttachedLeft}>
             <View style={stepStyles.videoIconCircle}>
-              <Feather name="video" size={22} color={Colors.dark.primary} />
+              <Feather name={iconName} size={22} color={Colors.dark.primary} />
             </View>
             <ThemedText type="small" style={stepStyles.videoAttachedLabel}>
-              Video attached
+              {label}
             </ThemedText>
           </View>
-          <Pressable onPress={onRemoveVideo} style={stepStyles.removeBtn}>
+          <Pressable onPress={onRemoveMedia} style={stepStyles.removeBtn}>
             <Feather name="x" size={18} color={Colors.dark.error} />
           </Pressable>
         </View>
       ) : (
-        <View style={stepStyles.mediaButtons}>
-          <Pressable onPress={onPickVideo} style={stepStyles.mediaBtn}>
+        <View style={stepStyles.mediaGrid}>
+          <Pressable onPress={onPickFromLibrary} style={stepStyles.mediaBtn}>
             <View style={stepStyles.mediaBtnIcon}>
-              <Feather name="image" size={28} color={Colors.dark.primary} />
+              <Feather name="folder" size={26} color={Colors.dark.primary} />
             </View>
             <ThemedText type="small" style={stepStyles.mediaBtnLabel}>
-              Choose from Library
+              Library
+            </ThemedText>
+          </Pressable>
+          <Pressable onPress={onTakePhoto} style={stepStyles.mediaBtn}>
+            <View style={stepStyles.mediaBtnIcon}>
+              <Feather name="camera" size={26} color={Colors.dark.accent} />
+            </View>
+            <ThemedText type="small" style={stepStyles.mediaBtnLabel}>
+              Take Photo
             </ThemedText>
           </Pressable>
           <Pressable onPress={onRecordVideo} style={stepStyles.mediaBtn}>
             <View style={stepStyles.mediaBtnIcon}>
-              <Feather name="video" size={28} color={Colors.dark.accent} />
+              <Feather name="video" size={26} color="#FF9800" />
             </View>
             <ThemedText type="small" style={stepStyles.mediaBtnLabel}>
               Record Video
@@ -411,22 +435,26 @@ export default function NewEntryScreen() {
   const existingEntry = route.params?.entry;
   const isEditing = !!existingEntry;
 
-  const [date] = useState(existingEntry?.date || new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(existingEntry?.date || new Date().toISOString().split("T")[0]);
   const [mood, setMood] = useState(existingEntry?.mood || 3);
   const [duration, setDuration] = useState(existingEntry?.duration?.toString() || "");
   const [reflection, setReflection] = useState(existingEntry?.reflection || "");
   const [skills, setSkills] = useState<{ category: SkillCategory; notes: string }[]>(
     existingEntry?.skills || []
   );
-  const [videoUri, setVideoUri] = useState<string | undefined>(existingEntry?.videoUri);
+  const [mediaUri, setMediaUri] = useState<string | undefined>(existingEntry?.videoUri);
+  const [mediaType, setMediaType] = useState<"photo" | "video" | undefined>(
+    existingEntry?.videoUri ? "video" : undefined
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const [navDir, setNavDir] = useState<1 | -1>(1);
   const [isCelebrating, setIsCelebrating] = useState(false);
   const savedRef = useRef(false);
 
   const hasData = useCallback(() => {
-    return duration !== "" || reflection !== "" || skills.length > 0 || videoUri !== undefined;
-  }, [duration, reflection, skills, videoUri]);
+    return duration !== "" || reflection !== "" || skills.length > 0 || mediaUri !== undefined;
+  }, [duration, reflection, skills, mediaUri]);
 
   useEffect(() => {
     if (isEditing) return;
@@ -442,19 +470,39 @@ export default function NewEntryScreen() {
     return unsubscribe;
   }, [navigation, isEditing, hasData, currentStep]);
 
-  const handlePickVideo = async () => {
+  const handlePickFromLibrary = async () => {
     const result = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!result.granted) {
       Alert.alert("Permission Required", "Please allow access to your media library.");
       return;
     }
     const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: "videos",
+      mediaTypes: ["images", "videos"],
       allowsEditing: true,
-      quality: 0.7,
+      quality: 0.8,
     });
     if (!picked.canceled && picked.assets[0]) {
-      setVideoUri(picked.assets[0].uri);
+      const asset = picked.assets[0];
+      setMediaUri(asset.uri);
+      setMediaType(asset.type === "video" ? "video" : "photo");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    const result = await ImagePicker.requestCameraPermissionsAsync();
+    if (!result.granted) {
+      Alert.alert("Permission Required", "Please allow camera access.");
+      return;
+    }
+    const photo = await ImagePicker.launchCameraAsync({
+      mediaTypes: "images",
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    if (!photo.canceled && photo.assets[0]) {
+      setMediaUri(photo.assets[0].uri);
+      setMediaType("photo");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   };
@@ -472,7 +520,8 @@ export default function NewEntryScreen() {
       videoMaxDuration: 60,
     });
     if (!recorded.canceled && recorded.assets[0]) {
-      setVideoUri(recorded.assets[0].uri);
+      setMediaUri(recorded.assets[0].uri);
+      setMediaType("video");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   };
@@ -482,13 +531,13 @@ export default function NewEntryScreen() {
     if (!duration || mins <= 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Missing Duration", "Please enter how long you trained.");
-      if (!isEditing) setCurrentStep(1);
+      if (!isEditing) { setNavDir(1); setCurrentStep(1); }
       return;
     }
 
     setIsSaving(true);
     try {
-      const entryData = { date, mood, duration: mins, reflection, skills, videoUri };
+      const entryData = { date, mood, duration: mins, reflection, skills, videoUri: mediaUri };
       if (isEditing && existingEntry) {
         await updateEntry(existingEntry.id, entryData);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -510,6 +559,7 @@ export default function NewEntryScreen() {
   const handleNext = () => {
     if (currentStep < STEPS.length - 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setNavDir(1);
       setCurrentStep((s) => s + 1);
     } else {
       handleSave();
@@ -519,6 +569,7 @@ export default function NewEntryScreen() {
   const handleBack = () => {
     if (currentStep > 0) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setNavDir(-1);
       setCurrentStep((s) => s - 1);
     } else {
       navigation.goBack();
@@ -531,6 +582,17 @@ export default function NewEntryScreen() {
         style={editStyles.container}
         contentContainerStyle={[editStyles.content, { paddingBottom: insets.bottom + Spacing["2xl"] }]}
       >
+        <View style={editStyles.section}>
+          <ThemedText type="body" style={editStyles.label}>Date</ThemedText>
+          <TextInput
+            style={editStyles.input}
+            value={date}
+            onChangeText={setDate}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={Colors.dark.textSecondary}
+            testID="input-date"
+          />
+        </View>
         <MoodSlider value={mood} onChange={setMood} />
         <View style={editStyles.section}>
           <ThemedText type="body" style={editStyles.label}>Training Duration (minutes)</ThemedText>
@@ -560,21 +622,23 @@ export default function NewEntryScreen() {
         </View>
         <SkillSelector selectedSkills={skills} onChange={setSkills} />
         <View style={editStyles.section}>
-          <ThemedText type="body" style={editStyles.label}>Video</ThemedText>
-          {videoUri ? (
+          <ThemedText type="body" style={editStyles.label}>Media</ThemedText>
+          {mediaUri ? (
             <View style={editStyles.videoRow}>
               <View style={editStyles.videoLeft}>
-                <Feather name="video" size={20} color={Colors.dark.primary} />
-                <ThemedText type="small" style={{ color: Colors.dark.primary, marginLeft: 8 }}>Video attached</ThemedText>
+                <Feather name={mediaType === "video" ? "video" : "image"} size={20} color={Colors.dark.primary} />
+                <ThemedText type="small" style={{ color: Colors.dark.primary, marginLeft: 8 }}>
+                  {mediaType === "video" ? "Video" : "Photo"} attached
+                </ThemedText>
               </View>
-              <Pressable onPress={() => setVideoUri(undefined)} style={{ padding: 8 }}>
+              <Pressable onPress={() => { setMediaUri(undefined); setMediaType(undefined); }} style={{ padding: 8 }}>
                 <Feather name="x" size={18} color={Colors.dark.error} />
               </Pressable>
             </View>
           ) : (
             <View style={editStyles.videoButtons}>
-              <Button variant="secondary" onPress={handlePickVideo} style={{ flex: 1 }}>Choose Video</Button>
-              <Button variant="secondary" onPress={handleRecordVideo} style={{ flex: 1 }}>Record Video</Button>
+              <Button variant="secondary" onPress={handlePickFromLibrary} style={{ flex: 1 }}>Library</Button>
+              <Button variant="secondary" onPress={handleRecordVideo} style={{ flex: 1 }}>Record</Button>
             </View>
           )}
         </View>
@@ -613,7 +677,17 @@ export default function NewEntryScreen() {
         contentContainerStyle={wizardStyles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <Animated.View key={currentStep} entering={FadeIn.duration(220)}>
+        <Animated.View
+          key={currentStep}
+          entering={(navDir === 1 ? SlideInRight : SlideInLeft)
+            .springify()
+            .damping(22)
+            .stiffness(200)}
+          exiting={(navDir === 1 ? SlideOutLeft : SlideOutRight)
+            .springify()
+            .damping(22)
+            .stiffness(200)}
+        >
           {currentStep === 0 ? (
             <MoodStep value={mood} onChange={setMood} />
           ) : currentStep === 1 ? (
@@ -624,10 +698,12 @@ export default function NewEntryScreen() {
             <NotesStep value={reflection} onChange={setReflection} />
           ) : (
             <MediaStep
-              videoUri={videoUri}
-              onPickVideo={handlePickVideo}
+              mediaUri={mediaUri}
+              mediaType={mediaType}
+              onPickFromLibrary={handlePickFromLibrary}
+              onTakePhoto={handleTakePhoto}
               onRecordVideo={handleRecordVideo}
-              onRemoveVideo={() => setVideoUri(undefined)}
+              onRemoveMedia={() => { setMediaUri(undefined); setMediaType(undefined); }}
             />
           )}
         </Animated.View>
@@ -644,7 +720,7 @@ export default function NewEntryScreen() {
           )}
           {isLastStep ? (
             <Pressable onPress={handleSave} style={wizardStyles.skipBtn}>
-              <ThemedText type="small" style={wizardStyles.skipLabel}>Skip video & save</ThemedText>
+              <ThemedText type="small" style={wizardStyles.skipLabel}>Skip media & save</ThemedText>
             </Pressable>
           ) : currentStep >= 2 ? (
             <Pressable onPress={handleNext} style={wizardStyles.skipBtn}>
@@ -879,6 +955,10 @@ const stepStyles = StyleSheet.create({
   mediaButtons: {
     flexDirection: "row",
     gap: Spacing.lg,
+  },
+  mediaGrid: {
+    flexDirection: "row",
+    gap: Spacing.md,
   },
   mediaBtn: {
     flex: 1,
