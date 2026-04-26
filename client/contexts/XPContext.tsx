@@ -11,8 +11,9 @@ import {
   View,
   StyleSheet,
   Pressable,
-  Share,
 } from "react-native";
+import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -159,9 +160,12 @@ function LevelUpModal({
 
   const handleShare = async () => {
     try {
-      await Share.share({
-        message: `I just reached ${levelName} on Soccer Diary! Keep grinding!`,
-      });
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) return;
+      const msg = `I just reached ${levelName} on Soccer Diary! Keep grinding!`;
+      const uri = (FileSystem.cacheDirectory ?? "") + "level_share.txt";
+      await FileSystem.writeAsStringAsync(uri, msg);
+      await Sharing.shareAsync(uri, { mimeType: "text/plain", dialogTitle: "Share achievement" });
     } catch {}
   };
 
@@ -273,23 +277,25 @@ const levelStyles = StyleSheet.create({
 });
 
 export function XPProvider({ children }: { children: ReactNode }) {
-  const { totalXp } = useDiary();
+  const { totalXp, isLoading } = useDiary();
   const [levelUpInfo, setLevelUpInfo] = useState<{ name: string; color: string } | null>(null);
   const prevLevelIdxRef = useRef<number | null>(null);
-  const isInitialized = useRef(false);
 
   useEffect(() => {
-    const { currentIdx, current } = getLevelInfo(totalXp);
-    if (!isInitialized.current) {
-      prevLevelIdxRef.current = currentIdx;
-      isInitialized.current = true;
+    if (isLoading) {
+      prevLevelIdxRef.current = null;
       return;
     }
-    if (prevLevelIdxRef.current !== null && currentIdx > prevLevelIdxRef.current) {
+    const { currentIdx, current } = getLevelInfo(totalXp);
+    if (prevLevelIdxRef.current === null) {
+      prevLevelIdxRef.current = currentIdx;
+      return;
+    }
+    if (currentIdx > prevLevelIdxRef.current) {
       setLevelUpInfo({ name: current.name, color: current.color });
     }
     prevLevelIdxRef.current = currentIdx;
-  }, [totalXp]);
+  }, [totalXp, isLoading]);
 
   const getLevelInfoForUser = useCallback(() => getLevelInfo(totalXp), [totalXp]);
 
