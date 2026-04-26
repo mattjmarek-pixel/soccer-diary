@@ -70,6 +70,7 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
   };
 
   const loadEntries = useCallback(async () => {
+    setIsLoading(true);
     if (!user) {
       setEntries([]);
       totalXpRef.current = 0;
