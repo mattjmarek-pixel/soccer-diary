@@ -42,6 +42,7 @@ interface DiaryContextType {
   getEntry: (id: string) => DiaryEntry | undefined;
   refreshEntries: () => Promise<void>;
   getLevelInfo: () => ReturnType<typeof getLevelInfo>;
+  awardXp: (amount: number) => Promise<void>;
 }
 
 const DiaryContext = createContext<DiaryContextType | undefined>(undefined);
@@ -213,6 +214,14 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
     await loadEntries();
   };
 
+  const awardXp = async (amount: number): Promise<void> => {
+    if (amount === 0) return;
+    const newTotalXp = Math.max(0, totalXpRef.current + amount);
+    totalXpRef.current = newTotalXp;
+    setTotalXp(newTotalXp);
+    saveXp(newTotalXp);
+  };
+
   const calculateStats = (): DiaryStats => {
     const totalEntries = entries.length;
     const totalMinutes = entries.reduce((sum, e) => sum + e.duration, 0);
@@ -257,6 +266,7 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
         getEntry,
         refreshEntries,
         getLevelInfo: () => getLevelInfo(totalXp),
+        awardXp,
       }}
     >
       {children}
