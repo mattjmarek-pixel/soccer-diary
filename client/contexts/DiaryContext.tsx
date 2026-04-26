@@ -64,7 +64,9 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
 
   const saveXp = (xp: number) => {
     if (!xpStorageKeyRef.current) return;
-    AsyncStorage.setItem(xpStorageKeyRef.current, xp.toString()).catch(() => {});
+    const { current: lvl } = getLevelInfo(xp);
+    const payload = JSON.stringify({ totalXp: xp, currentLevel: lvl.name });
+    AsyncStorage.setItem(xpStorageKeyRef.current, payload).catch(() => {});
   };
 
   const loadEntries = useCallback(async () => {
@@ -93,7 +95,17 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
         setEntries([]);
       }
 
-      const xp = xpData ? parseInt(xpData, 10) : 0;
+      let xp = 0;
+      if (xpData) {
+        try {
+          const parsed = JSON.parse(xpData);
+          xp = typeof parsed === "object" && parsed !== null
+            ? (parsed.totalXp ?? 0)
+            : parseInt(xpData, 10) || 0;
+        } catch {
+          xp = parseInt(xpData, 10) || 0;
+        }
+      }
       totalXpRef.current = xp;
       setTotalXp(xp);
     } catch {
