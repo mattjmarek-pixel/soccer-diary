@@ -191,7 +191,7 @@ function LevelUpModal({
         <View style={levelStyles.buttons}>
           <Pressable onPress={handleShare} style={[levelStyles.shareBtn, { borderColor: levelColor + "66" }]}>
             <ThemedText type="small" style={[levelStyles.shareText, { color: levelColor }]}>
-              Share achievement
+              {`I just reached ${levelName}!`}
             </ThemedText>
           </Pressable>
           <Pressable onPress={triggerDismiss} style={levelStyles.dismissBtn}>
