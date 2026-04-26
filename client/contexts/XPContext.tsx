@@ -11,8 +11,9 @@ import {
   View,
   StyleSheet,
   Pressable,
-  Share,
 } from "react-native";
+import { captureRef } from "react-native-view-shot";
+import * as Sharing from "expo-sharing";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -131,6 +132,7 @@ function LevelUpModal({
   const overlayOpacity = useSharedValue(0);
   const cardScale = useSharedValue(0);
   const cardOpacity = useSharedValue(0);
+  const cardRef = useRef<View>(null);
 
   const triggerDismiss = useCallback(() => {
     overlayOpacity.value = withTiming(0, { duration: 300 });
@@ -159,10 +161,10 @@ function LevelUpModal({
 
   const handleShare = async () => {
     try {
-      await Share.share({
-        message: `I just reached ${levelName} on Soccer Diary! Keep grinding!`,
-        title: "Soccer Diary Achievement",
-      });
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) return;
+      const uri = await captureRef(cardRef, { format: "png", quality: 1 });
+      await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: "Share Achievement" });
     } catch {}
   };
 
@@ -174,6 +176,7 @@ function LevelUpModal({
         ))}
       </View>
       <Animated.View style={[levelStyles.card, cardStyle]}>
+        <View ref={cardRef} style={levelStyles.cardInner}>
         <View style={[levelStyles.badge, { backgroundColor: levelColor + "22", borderColor: levelColor + "66" }]}>
           <ThemedText style={[levelStyles.badgeText, { color: levelColor }]}>
             LEVEL UP
@@ -196,6 +199,7 @@ function LevelUpModal({
               Continue
             </ThemedText>
           </Pressable>
+        </View>
         </View>
       </Animated.View>
     </Animated.View>
@@ -226,6 +230,10 @@ const levelStyles = StyleSheet.create({
     width: 300,
     borderWidth: 1,
     borderColor: Colors.dark.backgroundSecondary,
+  },
+  cardInner: {
+    width: "100%",
+    alignItems: "center",
   },
   badge: {
     paddingVertical: Spacing.xs,
