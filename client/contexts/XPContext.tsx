@@ -297,7 +297,9 @@ export function XPProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (currentIdx > prevLevelIdxRef.current) {
-      setLevelUpInfo({ name: current.name, color: current.color });
+      setTimeout(() => {
+        setLevelUpInfo({ name: current.name, color: current.color });
+      }, 1500);
     }
     prevLevelIdxRef.current = currentIdx;
   }, [totalXp, isLoading]);
