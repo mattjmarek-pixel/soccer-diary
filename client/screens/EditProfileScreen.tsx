@@ -41,7 +41,7 @@ export default function EditProfileScreen() {
   const [preferredFoot, setPreferredFoot] = useState<"Left" | "Right" | "Both" | undefined>(
     user?.preferredFoot
   );
-  const [avatarUri, setAvatarUri] = useState<string | undefined>(user?.avatarUri);
+  const [avatarUrl, setAvatarUri] = useState<string | undefined>(user?.avatarUrl);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
@@ -59,7 +59,7 @@ export default function EditProfileScreen() {
         team: team.trim() || undefined,
         position: position || undefined,
         preferredFoot,
-        avatarUri,
+        avatarUrl,
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -86,7 +86,7 @@ export default function EditProfileScreen() {
         </HeaderButton>
       ),
     });
-  }, [navigation, name, age, team, position, preferredFoot, avatarUri, isSaving]);
+  }, [navigation, name, age, team, position, preferredFoot, avatarUrl, isSaving]);
 
   const handlePickAvatar = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -124,8 +124,8 @@ export default function EditProfileScreen() {
         <Pressable onPress={handlePickAvatar} style={styles.avatarContainer}>
           <Image
             source={
-              avatarUri
-                ? { uri: avatarUri }
+              avatarUrl
+                ? { uri: avatarUrl }
                 : require("../../assets/images/avatar-placeholder.png")
             }
             style={styles.avatar}

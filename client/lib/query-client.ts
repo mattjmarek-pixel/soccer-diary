@@ -1,19 +1,24 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getToken } from "@/services/tokenStorage";
 
 /**
- * Gets the base URL for the Express API server (e.g., "http://localhost:3000")
- * @returns {string} The API base URL
+ * Gets the base URL for the Express API server
  */
 export function getApiUrl(): string {
-  let host = process.env.EXPO_PUBLIC_DOMAIN;
-
+  const host = process.env.EXPO_PUBLIC_DOMAIN;
   if (!host) {
     throw new Error("EXPO_PUBLIC_DOMAIN is not set");
   }
+  return new URL(`https://${host}`).href;
+}
 
-  let url = new URL(`https://${host}`);
-
-  return url.href;
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const token = await getToken();
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 async function throwIfResNotOk(res: Response) {
@@ -26,16 +31,19 @@ async function throwIfResNotOk(res: Response) {
 export async function apiRequest(
   method: string,
   route: string,
-  data?: unknown | undefined,
+  data?: unknown,
 ): Promise<Response> {
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
+  const authHeaders = await getAuthHeaders();
 
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers: {
+      ...(data ? { "Content-Type": "application/json" } : {}),
+      ...authHeaders,
+    },
     body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
   });
 
   await throwIfResNotOk(res);
@@ -49,18 +57,20 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const baseUrl = getApiUrl();
-    const url = new URL(queryKey.join("/") as string, baseUrl);
+    const path = (queryKey[0] as string).startsWith("/")
+      ? queryKey[0] as string
+      : "/" + queryKey.join("/");
+    const url = new URL(path, baseUrl);
+    const authHeaders = await getAuthHeaders();
 
-    const res = await fetch(url, {
-      credentials: "include",
-    });
+    const res = await fetch(url, { headers: authHeaders });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
     }
 
     await throwIfResNotOk(res);
-    return await res.json();
+    return res.json();
   };
 
 export const queryClient = new QueryClient({
@@ -69,8 +79,8 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      staleTime: 1000 * 60 * 5,
+      retry: 1,
     },
     mutations: {
       retry: false,

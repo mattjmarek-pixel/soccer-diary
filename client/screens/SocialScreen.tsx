@@ -20,9 +20,6 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
-import * as Contacts from "expo-contacts";
-import * as SMS from "expo-sms";
-import * as MailComposer from "expo-mail-composer";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -577,63 +574,25 @@ type ContactsPermStatus = "unknown" | "loading" | "granted" | "denied" | "denied
 
 function InviteTab() {
   const [permStatus, setPermStatus] = useState<ContactsPermStatus>(
-    Platform.OS === "web" ? "web" : "loading"
+    (Platform.OS as string) === "web" ? "web" : "loading"
   );
   const [contacts, setContacts] = useState<ContactEntry[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [query, setQuery] = useState("");
 
   const loadContacts = useCallback(async () => {
-    setContactsLoading(true);
-    try {
-      const { data } = await Contacts.getContactsAsync({
-        fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails],
-        sort: Contacts.SortTypes.FirstName,
-      });
-      const mapped: ContactEntry[] = data
-        .filter((c) => c.name)
-        .map((c) => ({
-          id: c.id ?? c.name ?? Math.random().toString(),
-          name: c.name ?? "",
-          phone: c.phoneNumbers?.[0]?.number,
-          email: c.emails?.[0]?.email,
-          initials: getContactInitials(c.name ?? ""),
-        }))
-        .filter((c) => c.phone !== undefined || c.email !== undefined);
-      setContacts(mapped);
-    } catch {
-      // Failed to load contacts silently
-    } finally {
-      setContactsLoading(false);
-    }
+    // Contact import removed — use native share to invite friends
+    setContactsLoading(false);
+    setContacts([]);
   }, []);
 
-  // On mount: check existing permission status to avoid prompting unnecessarily
   useEffect(() => {
-    if (Platform.OS === "web") return;
-    Contacts.getPermissionsAsync().then(({ status, canAskAgain }) => {
-      if (status === "granted") {
-        setPermStatus("granted");
-        loadContacts();
-      } else if (status === "denied") {
-        setPermStatus(canAskAgain ? "denied" : "denied-final");
-      } else {
-        setPermStatus("unknown");
-      }
-    });
+    // No-op: contacts feature replaced with native share
   }, [loadContacts]);
 
   const requestPermission = useCallback(async () => {
-    setPermStatus("loading");
-    const { status, canAskAgain } = await Contacts.requestPermissionsAsync();
-    if (status === "granted") {
-      setPermStatus("granted");
-      loadContacts();
-    } else {
-      // Any denial — show appropriate denied state
-      setPermStatus(canAskAgain ? "denied" : "denied-final");
-    }
-  }, [loadContacts]);
+    handleShareInvite();
+  }, []);
 
   const handleShareInvite = useCallback(async () => {
     try {
@@ -643,26 +602,9 @@ function InviteTab() {
     }
   }, []);
 
-  const handleInviteContact = useCallback(async (contact: ContactEntry) => {
+  const handleInviteContact = useCallback(async (_contact: ContactEntry) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (contact.phone) {
-      const isAvailable = await SMS.isAvailableAsync();
-      if (isAvailable) {
-        await SMS.sendSMSAsync([contact.phone], INVITE_MESSAGE);
-        return;
-      }
-    }
-    if (contact.email) {
-      const isAvailable = await MailComposer.isAvailableAsync();
-      if (isAvailable) {
-        await MailComposer.composeAsync({
-          recipients: [contact.email],
-          subject: "Join me on Soccer Diary!",
-          body: INVITE_MESSAGE,
-        });
-        return;
-      }
-    }
+    await Share.share({ message: INVITE_MESSAGE });
   }, []);
 
   const filteredContacts = contacts.filter(
@@ -670,7 +612,7 @@ function InviteTab() {
       query.length === 0 || c.name.toLowerCase().includes(query.toLowerCase())
   );
 
-  if (Platform.OS === "web") {
+  if ((Platform.OS as string) === "web") {
     return (
       <View style={styles.inviteWebMsg}>
         <Feather name="smartphone" size={36} color={Colors.dark.textSecondary} />
@@ -1216,7 +1158,7 @@ export default function SocialScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const fallbackText = `My Soccer Diary rankings this week: #${myRankGlobal} globally, #${myNationalRank} nationally! ${weeklyMins} minutes trained.`;
     try {
-      if (Platform.OS === "web" || !rankShareRef.current) {
+      if ((Platform.OS as string) === "web" || !rankShareRef.current) {
         await Share.share({ message: fallbackText });
         return;
       }

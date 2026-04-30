@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, useContext, ReactNode, useCallback } from "react";
 
 export type PremiumFeature =
   | "ai_insights"
@@ -13,95 +12,26 @@ interface PremiumContextType {
   isPremium: boolean;
   subscriptionTier: "free" | "pro";
   isLoading: boolean;
-  upgradeToPro: () => Promise<void>;
-  restorePurchases: () => Promise<void>;
-  downgradeToFree: () => Promise<void>;
   canAccessFeature: (feature: PremiumFeature) => boolean;
 }
 
 const PremiumContext = createContext<PremiumContextType | undefined>(undefined);
 
-const PREMIUM_STORAGE_KEY = "@soccer_diary_premium";
-
+/**
+ * All users are on the free tier until real payments are implemented.
+ * The Upgrade screen now collects waitlist emails instead of toggling a fake flag.
+ */
 export function PremiumProvider({ children }: { children: ReactNode }) {
-  const [isPremium, setIsPremium] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    loadPremiumStatus();
+  const canAccessFeature = useCallback((_feature: PremiumFeature): boolean => {
+    return false;
   }, []);
-
-  const loadPremiumStatus = async () => {
-    try {
-      const data = await AsyncStorage.getItem(PREMIUM_STORAGE_KEY);
-      if (data) {
-        const parsed = JSON.parse(data);
-        setIsPremium(parsed.isPremium === true);
-      }
-    } catch (error) {
-      console.error("Error loading premium status:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const upgradeToPro = useCallback(async () => {
-    try {
-      await AsyncStorage.setItem(
-        PREMIUM_STORAGE_KEY,
-        JSON.stringify({ isPremium: true, subscribedAt: new Date().toISOString() })
-      );
-      setIsPremium(true);
-    } catch (error) {
-      console.error("Error upgrading to pro:", error);
-      throw error;
-    }
-  }, []);
-
-  const restorePurchases = useCallback(async () => {
-    try {
-      const data = await AsyncStorage.getItem(PREMIUM_STORAGE_KEY);
-      if (data) {
-        const parsed = JSON.parse(data);
-        setIsPremium(parsed.isPremium === true);
-      }
-    } catch (error) {
-      console.error("Error restoring purchases:", error);
-      throw error;
-    }
-  }, []);
-
-  const downgradeToFree = useCallback(async () => {
-    try {
-      await AsyncStorage.removeItem(PREMIUM_STORAGE_KEY);
-      setIsPremium(false);
-    } catch (error) {
-      console.error("Error downgrading to free:", error);
-      throw error;
-    }
-  }, []);
-
-  const canAccessFeature = useCallback(
-    (feature: PremiumFeature): boolean => {
-      if (isPremium) return true;
-
-      const freeFeatures: PremiumFeature[] = [];
-      return freeFeatures.includes(feature) ? true : false;
-    },
-    [isPremium]
-  );
-
-  const subscriptionTier: "free" | "pro" = isPremium ? "pro" : "free";
 
   return (
     <PremiumContext.Provider
       value={{
-        isPremium,
-        subscriptionTier,
-        isLoading,
-        upgradeToPro,
-        restorePurchases,
-        downgradeToFree,
+        isPremium: false,
+        subscriptionTier: "free",
+        isLoading: false,
         canAccessFeature,
       }}
     >

@@ -153,8 +153,8 @@ export default function ProfileScreen() {
         <View style={styles.avatarGlowRing}>
           <Image
             source={
-              user?.avatarUri
-                ? { uri: user.avatarUri }
+              user?.avatarUrl
+                ? { uri: user.avatarUrl }
                 : require("../../assets/images/avatar-placeholder.png")
             }
             style={styles.avatar}

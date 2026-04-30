@@ -1,8 +1,18 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  ReactNode,
+  useCallback,
+} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { SkillCategory, computeEntryXp, getLevelInfo } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiRequest } from "@/lib/query-client";
 
 export interface DiaryEntry {
   id: string;
@@ -35,6 +45,7 @@ type UpdateEntryInput = Partial<Omit<DiaryEntry, "id" | "userId" | "createdAt" |
 interface DiaryContextType {
   entries: DiaryEntry[];
   isLoading: boolean;
+  isError: boolean;
   stats: DiaryStats;
   totalXp: number;
   currentLevel: string;
@@ -49,182 +60,228 @@ interface DiaryContextType {
 
 const DiaryContext = createContext<DiaryContextType | undefined>(undefined);
 
-const DIARY_STORAGE_KEY = "@soccer_diary_entries";
 const XP_STORAGE_KEY = "@soccer_diary_xp";
+const MIGRATED_KEY = "@soccer_diary_migrated_v2";
+const LEGACY_DIARY_KEY = "@soccer_diary_entries";
+
+// ── Field mapping helpers ─────────────────────────────────────────────────────
+
+function serverToClient(row: any): DiaryEntry {
+  return {
+    id: row.id,
+    userId: row.user_id ?? row.userId,
+    date: row.date,
+    mood: row.mood,
+    duration: row.duration_minutes ?? row.durationMinutes ?? row.duration ?? 0,
+    reflection: row.notes ?? row.reflection ?? "",
+    skills: Array.isArray(row.skills) ? row.skills : [],
+    videoUri: row.video_url ?? row.videoUrl ?? row.videoUri ?? undefined,
+    mediaType: row.media_type ?? row.mediaType ?? undefined,
+    xpAwarded: row.xp_awarded ?? row.xpAwarded ?? 0,
+    createdAt: row.created_at ?? row.createdAt ?? new Date().toISOString(),
+    updatedAt: row.updated_at ?? row.updatedAt ?? new Date().toISOString(),
+  };
+}
+
+function clientToServer(entry: AddEntryInput | UpdateEntryInput) {
+  const e = entry as any;
+  return {
+    date: e.date,
+    mood: e.mood,
+    durationMinutes: e.duration ?? e.durationMinutes,
+    notes: e.reflection ?? e.notes,
+    skills: e.skills ?? [],
+    videoUrl: e.videoUri ?? e.videoUrl ?? null,
+    mediaType: e.mediaType ?? null,
+  };
+}
+
+// ── Provider ──────────────────────────────────────────────────────────────────
 
 export function DiaryProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [entries, setEntries] = useState<DiaryEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const qc = useQueryClient();
+
   const [totalXp, setTotalXp] = useState(0);
   const totalXpRef = useRef(0);
 
-  const xpStorageKey = user ? `${XP_STORAGE_KEY}_${user.id}` : null;
-  const xpStorageKeyRef = useRef(xpStorageKey);
-  xpStorageKeyRef.current = xpStorageKey;
+  const xpKey = user ? `${XP_STORAGE_KEY}_${user.id}` : null;
 
-  const saveXp = (xp: number) => {
-    if (!xpStorageKeyRef.current) return;
-    const { current: lvl } = getLevelInfo(xp);
-    const payload = JSON.stringify({ totalXp: xp, currentLevel: lvl.name });
-    AsyncStorage.setItem(xpStorageKeyRef.current, payload).catch((e) => console.warn("saveXp failed:", e));
-  };
+  // ── Fetch entries from server ──────────────────────────────────────────
+  const {
+    data: rawEntries,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery<DiaryEntry[]>({
+    queryKey: ["/api/entries"],
+    enabled: !!user,
+    select: (data: any) => (Array.isArray(data) ? data.map(serverToClient) : []),
+  });
 
-  const loadEntries = useCallback(async () => {
-    setIsLoading(true);
-    if (!user) {
-      setEntries([]);
-      totalXpRef.current = 0;
-      setTotalXp(0);
-      setIsLoading(false);
-      return;
-    }
+  const entries: DiaryEntry[] = rawEntries ?? [];
 
-    try {
-      const [entriesData, xpData] = await Promise.all([
-        AsyncStorage.getItem(DIARY_STORAGE_KEY),
-        AsyncStorage.getItem(`${XP_STORAGE_KEY}_${user.id}`),
-      ]);
+  // ── XP management ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!xpKey) return;
+    AsyncStorage.getItem(xpKey).then((raw) => {
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        const xp = typeof parsed === "object" ? (parsed.totalXp ?? 0) : parseInt(raw, 10) || 0;
+        totalXpRef.current = xp;
+        setTotalXp(xp);
+      } catch {
+        const xp = parseInt(raw, 10) || 0;
+        totalXpRef.current = xp;
+        setTotalXp(xp);
+      }
+    });
+  }, [xpKey]);
 
-      let resolvedEntries: DiaryEntry[] = [];
-      if (entriesData) {
-        const allEntries: DiaryEntry[] = JSON.parse(entriesData);
-        resolvedEntries = allEntries
-          .filter((e) => e.userId === user.id)
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const saveXp = useCallback(
+    (xp: number) => {
+      if (!xpKey) return;
+      const lvl = getLevelInfo(xp);
+      AsyncStorage.setItem(
+        xpKey,
+        JSON.stringify({ totalXp: xp, currentLevel: lvl.current.name })
+      ).catch(() => {});
+    },
+    [xpKey]
+  );
+
+  // ── One-time migration from AsyncStorage → server ─────────────────────
+  useEffect(() => {
+    if (!user || isLoading) return;
+
+    AsyncStorage.getItem(MIGRATED_KEY).then(async (done) => {
+      if (done === "true") return;
+
+      const legacyRaw = await AsyncStorage.getItem(LEGACY_DIARY_KEY);
+      if (!legacyRaw) {
+        await AsyncStorage.setItem(MIGRATED_KEY, "true");
+        return;
       }
 
-      let xp = 0;
-      if (xpData) {
-        try {
-          const parsed = JSON.parse(xpData);
-          xp = typeof parsed === "object" && parsed !== null
-            ? (parsed.totalXp ?? 0)
-            : parseInt(xpData, 10) || 0;
-        } catch {
-          xp = parseInt(xpData, 10) || 0;
+      try {
+        const allEntries: any[] = JSON.parse(legacyRaw);
+        const mine = allEntries.filter((e) => e.userId === user.id);
+
+        for (const e of mine) {
+          const xp = computeEntryXp({
+            duration: e.duration,
+            reflection: e.reflection,
+            mediaType: e.mediaType,
+          });
+          await apiRequest("POST", "/api/entries", {
+            ...clientToServer(e),
+            xpAwarded: e.xpAwarded && e.xpAwarded > 0 ? e.xpAwarded : xp,
+          }).catch(() => {});
         }
-        resolvedEntries = resolvedEntries.map((e) => ({ ...e, xpAwarded: e.xpAwarded ?? 0 }));
-      } else if (resolvedEntries.length > 0) {
-        // One-time XP backfill for users with entries but no XP record
-        resolvedEntries = resolvedEntries.map((e) => ({
-          ...e,
-          xpAwarded: e.xpAwarded && e.xpAwarded > 0
-            ? e.xpAwarded
-            : computeEntryXp({ duration: e.duration, reflection: e.reflection, mediaType: e.mediaType }),
-        }));
-        xp = resolvedEntries.reduce((sum, e) => sum + (e.xpAwarded ?? 0), 0);
-        // Persist backfilled entries and XP asynchronously
-        AsyncStorage.getItem(DIARY_STORAGE_KEY).then((raw) => {
-          const all: DiaryEntry[] = raw ? JSON.parse(raw) : [];
-          const others = all.filter((e) => e.userId !== user.id);
-          AsyncStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify([...others, ...resolvedEntries])).catch(
-            (e) => console.warn("XP backfill entries save failed:", e)
-          );
-        }).catch((e) => console.warn("XP backfill read failed:", e));
-        const lvl = getLevelInfo(xp);
-        AsyncStorage.setItem(
-          `${XP_STORAGE_KEY}_${user.id}`,
-          JSON.stringify({ totalXp: xp, currentLevel: lvl.current.name })
-        ).catch((e) => console.warn("XP backfill XP save failed:", e));
-      } else {
-        resolvedEntries = resolvedEntries.map((e) => ({ ...e, xpAwarded: e.xpAwarded ?? 0 }));
-      }
 
-      setEntries(resolvedEntries);
+        await AsyncStorage.setItem(MIGRATED_KEY, "true");
+        qc.invalidateQueries({ queryKey: ["/api/entries"] });
+      } catch (err) {
+        console.warn("Migration failed:", err);
+      }
+    });
+  }, [user, isLoading]);
+
+  // ── Sync XP with entries on load ──────────────────────────────────────
+  useEffect(() => {
+    if (!entries.length || !xpKey) return;
+
+    AsyncStorage.getItem(xpKey).then((raw) => {
+      if (raw) return;
+      const xp = entries.reduce((sum, e) => sum + (e.xpAwarded ?? 0), 0);
       totalXpRef.current = xp;
       setTotalXp(xp);
-    } catch {
-      setEntries([]);
-      totalXpRef.current = 0;
-      setTotalXp(0);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user]);
+      saveXp(xp);
+    });
+  }, [entries, xpKey, saveXp]);
 
-  useEffect(() => {
-    loadEntries();
-  }, [loadEntries]);
+  // ── Mutations ─────────────────────────────────────────────────────────
 
-  const saveAllEntries = async (userEntries: DiaryEntry[]) => {
-    try {
-      const data = await AsyncStorage.getItem(DIARY_STORAGE_KEY);
-      let allEntries: DiaryEntry[] = data ? JSON.parse(data) : [];
-      allEntries = allEntries.filter((e) => e.userId !== user?.id);
-      allEntries = [...allEntries, ...userEntries];
-      await AsyncStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(allEntries));
-    } catch (error) {
-      console.error("Error saving entries:", error);
-      throw error;
-    }
-  };
+  const addMutation = useMutation({
+    mutationFn: async (payload: { input: AddEntryInput; xpAwarded: number }) => {
+      const res = await apiRequest("POST", "/api/entries", {
+        ...clientToServer(payload.input),
+        xpAwarded: payload.xpAwarded,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/entries"] });
+    },
+  });
 
-  const addEntry = async (entry: AddEntryInput): Promise<DiaryEntry> => {
+  const updateMutation = useMutation({
+    mutationFn: async (payload: { id: string; updates: UpdateEntryInput; xpAwarded: number }) => {
+      const res = await apiRequest("PUT", `/api/entries/${payload.id}`, {
+        ...clientToServer(payload.updates),
+        xpAwarded: payload.xpAwarded,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/entries"] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/entries/${id}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/entries"] });
+    },
+  });
+
+  // ── Public API ─────────────────────────────────────────────────────────
+
+  const addEntry = async (input: AddEntryInput): Promise<DiaryEntry> => {
     if (!user) throw new Error("User not authenticated");
 
     const xpAwarded = computeEntryXp({
-      duration: entry.duration,
-      reflection: entry.reflection,
-      mediaType: entry.mediaType,
+      duration: input.duration,
+      reflection: input.reflection,
+      mediaType: input.mediaType,
     });
 
-    const now = new Date().toISOString();
-    const newEntry: DiaryEntry = {
-      ...entry,
-      xpAwarded,
-      id: Date.now().toString(),
-      userId: user.id,
-      createdAt: now,
-      updatedAt: now,
-    };
+    const raw = await addMutation.mutateAsync({ input, xpAwarded });
+    const entry = serverToClient(raw);
 
-    const newEntries = [newEntry, ...entries];
-    await saveAllEntries(newEntries);
-    setEntries(newEntries);
+    const newXp = totalXpRef.current + xpAwarded;
+    totalXpRef.current = newXp;
+    setTotalXp(newXp);
+    saveXp(newXp);
 
-    const newTotalXp = totalXpRef.current + xpAwarded;
-    totalXpRef.current = newTotalXp;
-    setTotalXp(newTotalXp);
-    saveXp(newTotalXp);
-
-    return newEntry;
+    return entry;
   };
 
-  const updateEntry = async (id: string, updates: UpdateEntryInput): Promise<{ xpDelta: number }> => {
-    const entryIndex = entries.findIndex((e) => e.id === id);
-    if (entryIndex === -1) throw new Error("Entry not found");
+  const updateEntry = async (
+    id: string,
+    updates: UpdateEntryInput
+  ): Promise<{ xpDelta: number }> => {
+    const existing = entries.find((e) => e.id === id);
+    if (!existing) throw new Error("Entry not found");
 
-    const existingEntry = entries[entryIndex];
-
-    const newXpAwarded = computeEntryXp({
-      duration: "duration" in updates ? (updates.duration ?? existingEntry.duration) : existingEntry.duration,
-      reflection: "reflection" in updates ? (updates.reflection ?? existingEntry.reflection) : existingEntry.reflection,
-      mediaType: "mediaType" in updates ? updates.mediaType : existingEntry.mediaType,
+    const newXp = computeEntryXp({
+      duration: "duration" in updates ? (updates.duration ?? existing.duration) : existing.duration,
+      reflection:
+        "reflection" in updates ? (updates.reflection ?? existing.reflection) : existing.reflection,
+      mediaType: "mediaType" in updates ? updates.mediaType : existing.mediaType,
     });
+    const xpDelta = newXp - (existing.xpAwarded ?? 0);
 
-    const xpDelta = newXpAwarded - (existingEntry.xpAwarded ?? 0);
-
-    const updatedEntry: DiaryEntry = {
-      ...existingEntry,
-      ...updates,
-      xpAwarded: newXpAwarded,
-      id: existingEntry.id,
-      userId: existingEntry.userId,
-      createdAt: existingEntry.createdAt,
-      updatedAt: new Date().toISOString(),
-    };
-
-    const newEntries = [...entries];
-    newEntries[entryIndex] = updatedEntry;
-    await saveAllEntries(newEntries);
-    setEntries(newEntries);
+    await updateMutation.mutateAsync({ id, updates, xpAwarded: newXp });
 
     if (xpDelta !== 0) {
-      const newTotalXp = Math.max(0, totalXpRef.current + xpDelta);
-      totalXpRef.current = newTotalXp;
-      setTotalXp(newTotalXp);
-      saveXp(newTotalXp);
+      const newTotal = Math.max(0, totalXpRef.current + xpDelta);
+      totalXpRef.current = newTotal;
+      setTotalXp(newTotal);
+      saveXp(newTotal);
     }
 
     return { xpDelta };
@@ -234,32 +291,31 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
     const entry = entries.find((e) => e.id === id);
     const xpToDeduct = entry?.xpAwarded ?? 0;
 
-    const newEntries = entries.filter((e) => e.id !== id);
-    await saveAllEntries(newEntries);
-    setEntries(newEntries);
+    await deleteMutation.mutateAsync(id);
 
     if (xpToDeduct > 0) {
-      const newTotalXp = Math.max(0, totalXpRef.current - xpToDeduct);
-      totalXpRef.current = newTotalXp;
-      setTotalXp(newTotalXp);
-      saveXp(newTotalXp);
+      const newTotal = Math.max(0, totalXpRef.current - xpToDeduct);
+      totalXpRef.current = newTotal;
+      setTotalXp(newTotal);
+      saveXp(newTotal);
     }
   };
 
   const getEntry = (id: string) => entries.find((e) => e.id === id);
 
   const refreshEntries = async () => {
-    setIsLoading(true);
-    await loadEntries();
+    await refetch();
   };
 
   const awardXp = async (amount: number): Promise<void> => {
     if (amount === 0) return;
-    const newTotalXp = Math.max(0, totalXpRef.current + amount);
-    totalXpRef.current = newTotalXp;
-    setTotalXp(newTotalXp);
-    saveXp(newTotalXp);
+    const newTotal = Math.max(0, totalXpRef.current + amount);
+    totalXpRef.current = newTotal;
+    setTotalXp(newTotal);
+    saveXp(newTotal);
   };
+
+  // ── Stats ─────────────────────────────────────────────────────────────
 
   const calculateStats = (): DiaryStats => {
     const totalEntries = entries.length;
@@ -269,18 +325,22 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const sortedDates = [...new Set(entries.map((e) => {
-      const d = new Date(e.date);
-      d.setHours(0, 0, 0, 0);
-      return d.getTime();
-    }))].sort((a, b) => b - a);
+    const sortedDates = [
+      ...new Set(
+        entries.map((e) => {
+          const d = new Date(e.date);
+          d.setHours(0, 0, 0, 0);
+          return d.getTime();
+        })
+      ),
+    ].sort((a, b) => b - a);
 
     for (let i = 0; i < sortedDates.length; i++) {
-      const expectedDate = new Date(today);
-      expectedDate.setDate(expectedDate.getDate() - i);
-      expectedDate.setHours(0, 0, 0, 0);
+      const expected = new Date(today);
+      expected.setDate(expected.getDate() - i);
+      expected.setHours(0, 0, 0, 0);
 
-      if (sortedDates[i] === expectedDate.getTime()) {
+      if (sortedDates[i] === expected.getTime()) {
         currentStreak++;
       } else if (i === 0 && sortedDates[i] === today.getTime() - 86400000) {
         currentStreak++;
@@ -290,9 +350,7 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
     }
 
     const todayStr = today.toDateString();
-    const hasLoggedToday = entries.some(
-      (e) => new Date(e.date).toDateString() === todayStr
-    );
+    const hasLoggedToday = entries.some((e) => new Date(e.date).toDateString() === todayStr);
 
     return { totalEntries, totalMinutes, currentStreak, hasLoggedToday };
   };
@@ -301,7 +359,8 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
     <DiaryContext.Provider
       value={{
         entries,
-        isLoading,
+        isLoading: isLoading && !!user,
+        isError,
         stats: calculateStats(),
         totalXp,
         currentLevel: getLevelInfo(totalXp).current.name,

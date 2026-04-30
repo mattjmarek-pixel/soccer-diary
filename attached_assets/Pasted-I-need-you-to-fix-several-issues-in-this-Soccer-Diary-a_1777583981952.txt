@@ -1,0 +1,120 @@
+I need you to fix several issues in this Soccer Diary app. Please work through them in order:
+
+---
+
+**1. Fix the package name**
+In `package.json`, change `"name": "my-app"` to `"name": "soccer-diary"`. Also verify 
+`app.json` has the correct `name`, `slug`, `bundleIdentifier` (iOS), and `package` 
+(Android) fields set to something like `com.soccerdiary.app`.
+
+---
+
+**2. Implement real authentication**
+Replace the fake AsyncStorage-based auth in `AuthContext` with real OAuth:
+
+- Add Apple Sign-In for iOS using `expo-apple-authentication`
+- Add Google Sign-In using `expo-auth-session` with Google's OAuth2 provider
+- Store tokens securely using `expo-secure-store` (not AsyncStorage)
+- Create a `POST /api/auth/session` route on the Express backend that validates 
+  the token and returns a signed JWT
+- Store the JWT in `expo-secure-store` and attach it as a Bearer token on all 
+  API requests
+- Update `AuthContext` to handle: loading state, signed-in state, and sign-out 
+  (clears secure store)
+- Keep the existing 3-screen onboarding flow — just replace the fake email/password 
+  form on the Auth screen with Apple and Google sign-in buttons per the design guidelines
+
+---
+
+**3. Migrate diary entries to the server/database**
+All diary entries currently live only in AsyncStorage. Move them to PostgreSQL via 
+the Express backend:
+
+- Add a `diary_entries` table to `shared/schema.ts` using Drizzle ORM with fields:
+  `id` (UUID, PK), `user_id` (UUID, FK to users), `date` (date), `mood` (integer 1–5), 
+  `duration_minutes` (integer), `notes` (text), `skills` (jsonb), `video_url` 
+  (text, nullable), `created_at` (timestamp), `updated_at` (timestamp)
+- Run `npm run db:push` to apply the schema
+- Add these JWT-protected routes to `server/routes.ts`:
+  - `GET /api/entries` — all entries for the authenticated user, newest first
+  - `POST /api/entries` — create a new entry
+  - `PUT /api/entries/:id` — update an entry
+  - `DELETE /api/entries/:id` — delete an entry
+- Update `DiaryContext` to call these endpoints instead of AsyncStorage
+- Use TanStack Query (`useQuery` and `useMutation`) for all API calls — it's already 
+  installed, so use it properly here for caching, loading states, and error handling
+- On first launch after this update, if entries exist in AsyncStorage, upload them 
+  to the server then clear AsyncStorage
+
+---
+
+**4. Fix the premium upgrade flow**
+The upgrade flow currently just toggles a fake boolean in AsyncStorage. Fix it:
+
+- Replace the "Upgrade Now" button on the Upgrade screen with 
+  "Coming Soon — Join the Waitlist"
+- The button opens a modal that collects the user's email and saves it to a new 
+  `waitlist` table in the database (`id`, `email`, `created_at`)
+- Add a `POST /api/waitlist` route (no auth required) to handle submissions
+- Remove the fake premium toggle from `PremiumContext` — all users are free tier 
+  until real payments are implemented
+- Replace any premium-gated UI elements with a lock icon and "Coming Soon" label 
+  rather than hiding them entirely
+
+---
+
+**5. Remove unused dependencies**
+Remove these packages that are not part of the core diary functionality:
+
+- `expo-contacts`
+- `expo-sms`
+- `expo-mail-composer`
+- `@octokit/rest`
+
+Also remove `client/replit_integrations/` and `server/replit_integrations/` scaffold 
+folders, UNLESS the `/api/ai-insights` route is actively used — in that case, keep 
+only the OpenAI dependency and remove everything else from those folders.
+
+Run `npm install` after removing packages to update `package-lock.json`.
+
+---
+
+**6. Lean into TanStack Query properly**
+It's already installed but described as "lightly used." Now that diary entries are 
+server-side, use it consistently:
+
+- `useQuery` for fetching the entries list and profile data
+- `useMutation` for create, update, and delete operations
+- Invalidate the entries query cache after any mutation so the timeline 
+  stays in sync
+- Add proper loading and error states to the Timeline and Profile screens
+
+---
+
+**7. Write a proper README**
+Replace the current two-line `README.md` with a complete one that includes:
+
+- Project description and a screenshots placeholder section
+- Tech stack overview (React Native / Expo, Express.js, PostgreSQL, Drizzle ORM, 
+  OpenAI)
+- Prerequisites (Node.js version, Expo Go app, required environment variables)
+- Step-by-step local setup instructions
+- How to run the Expo dev server and Express server concurrently
+- How to apply database migrations (`npm run db:push`)
+- All required environment variables with descriptions:
+  - `DATABASE_URL`
+  - `AI_INTEGRATIONS_OPENAI_API_KEY`
+  - `AI_INTEGRATIONS_OPENAI_BASE_URL`
+  - `REPLIT_DEV_DOMAIN`
+  - `EXPO_PUBLIC_DOMAIN`
+- A brief folder structure overview explaining `client/`, `server/`, `shared/`, 
+  and `scripts/`
+
+---
+
+**Final checks — do these after all of the above:**
+- Run `npm run check:types` and fix any TypeScript errors introduced
+- Run `npm run lint` and fix any lint errors
+- Confirm the app still launches in Expo Go without crashes
+- Verify all API routes return appropriate error responses (400, 401, 404, 500) 
+  rather than crashing

@@ -46,28 +46,28 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <DiaryProvider>
-          <PremiumProvider>
-          <AchievementProvider>
-          <XPProvider>
-          <QueryClientProvider client={queryClient}>
-            <SafeAreaProvider>
-              <GestureHandlerRootView style={styles.root}>
-                <KeyboardProvider>
-                  <NavigationContainer>
-                    <RootStackNavigator />
-                  </NavigationContainer>
-                  <StatusBar style="light" />
-                </KeyboardProvider>
-              </GestureHandlerRootView>
-            </SafeAreaProvider>
-          </QueryClientProvider>
-          </XPProvider>
-          </AchievementProvider>
-          </PremiumProvider>
-        </DiaryProvider>
-      </AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <DiaryProvider>
+            <PremiumProvider>
+              <AchievementProvider>
+                <XPProvider>
+                  <SafeAreaProvider>
+                    <GestureHandlerRootView style={styles.root}>
+                      <KeyboardProvider>
+                        <NavigationContainer>
+                          <RootStackNavigator />
+                        </NavigationContainer>
+                        <StatusBar style="light" />
+                      </KeyboardProvider>
+                    </GestureHandlerRootView>
+                  </SafeAreaProvider>
+                </XPProvider>
+              </AchievementProvider>
+            </PremiumProvider>
+          </DiaryProvider>
+        </AuthProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }
