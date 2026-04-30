@@ -243,6 +243,12 @@ export default function ProfileScreen() {
       <Animated.View entering={FadeIn.delay(220).duration(400)} style={styles.settingsSection}>
         <SectionHeader icon="star" label="Features" />
         <SettingsRow
+          icon="credit-card"
+          label="My Player Card"
+          onPress={() => navigation.navigate("PlayerCardModal")}
+          iconColor={Colors.dark.primary}
+        />
+        <SettingsRow
           icon="clipboard"
           label="Training Templates"
           onPress={() => navigation.navigate("Templates")}

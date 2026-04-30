@@ -12,6 +12,7 @@ import EditProfileScreen from "@/screens/EditProfileScreen";
 import InsightsScreen from "@/screens/InsightsScreen";
 import TemplatesScreen from "@/screens/TemplatesScreen";
 import UpgradeScreen from "@/screens/UpgradeScreen";
+import PlayerCardScreen from "@/screens/PlayerCardScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import { Colors } from "@/constants/theme";
@@ -27,6 +28,7 @@ export type RootStackParamList = {
   Insights: undefined;
   Templates: undefined;
   Upgrade: undefined;
+  PlayerCardModal: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -131,6 +133,19 @@ export default function RootStackNavigator() {
         options={({ navigation }) => ({
           presentation: "modal",
           headerTitle: "Go Pro",
+          headerLeft: () => (
+            <HeaderButton onPress={() => navigation.goBack()}>
+              <Feather name="x" size={24} color={Colors.dark.text} />
+            </HeaderButton>
+          ),
+        })}
+      />
+      <Stack.Screen
+        name="PlayerCardModal"
+        component={PlayerCardScreen}
+        options={({ navigation }) => ({
+          presentation: "modal",
+          headerTitle: "My Player Card",
           headerLeft: () => (
             <HeaderButton onPress={() => navigation.goBack()}>
               <Feather name="x" size={24} color={Colors.dark.text} />

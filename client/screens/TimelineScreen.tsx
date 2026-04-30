@@ -15,7 +15,7 @@ import { Feather } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
 
 import { DiaryEntryCard } from "@/components/DiaryEntryCard";
-import { EmptyState } from "@/components/EmptyState";
+import { TrainTodayCard } from "@/components/TrainTodayCard";
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useDiary, DiaryEntry, DiaryStats } from "@/contexts/DiaryContext";
@@ -160,7 +160,15 @@ export default function TimelineScreen() {
 
   const renderHeader = useCallback(
     () => (
-      <WeeklyBanner entries={entries} stats={stats} />
+      <View>
+        <TrainTodayCard
+          hasLoggedToday={stats.hasLoggedToday}
+          currentStreak={stats.currentStreak}
+          totalEntries={stats.totalEntries}
+          onLogSession={handleNewEntry}
+        />
+        {entries.length > 0 ? <WeeklyBanner entries={entries} stats={stats} /> : null}
+      </View>
     ),
     [entries, stats]
   );
@@ -183,18 +191,7 @@ export default function TimelineScreen() {
     [entries]
   );
 
-  const renderEmpty = useCallback(
-    () => (
-      <EmptyState
-        image={require("../../assets/images/empty-timeline.png")}
-        title="Start your journey"
-        subtitle="Log your first training session and begin tracking your progress"
-        actionLabel="Add First Entry"
-        onAction={handleNewEntry}
-      />
-    ),
-    []
-  );
+  const renderEmpty = useCallback(() => null, []);
 
   if (isLoading) {
     return (

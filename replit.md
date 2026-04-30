@@ -18,7 +18,7 @@ Preferred communication style: Simple, everyday language.
 - **Entry point**: `client/index.js` → `client/App.tsx`
 - **Path aliases**: `@/` maps to `./client/`, `@shared/` maps to `./shared/`
 - **Navigation**: React Navigation v7 with a root native stack navigator wrapping a bottom tab navigator
-  - **Root Stack**: Onboarding → Auth → Main (tabs), plus modal screens (NewEntry, DiaryDetail, EditProfile, Insights, Templates, Upgrade)
+  - **Root Stack**: Onboarding → Auth → Main (tabs), plus modal screens (NewEntry, DiaryDetail, EditProfile, Insights, Templates, Upgrade, PlayerCardModal)
   - **NewEntry modal**: 5-step wizard for new entries (Mood → Duration → Skills → Notes → Media) with animated progress bar and confetti celebration overlay on save; falls back to single-form layout for editing. `headerShown` is false for wizard (custom header) and true for edit mode.
   - **Bottom Tabs**: Timeline, Stats, Achievements (Badges), Profile — with a floating action button in the center for creating new entries
 - **State Management**: React Context API (AuthContext, DiaryContext, PremiumContext) — no Redux or Zustand

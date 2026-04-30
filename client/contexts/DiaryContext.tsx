@@ -26,6 +26,7 @@ export interface DiaryStats {
   totalEntries: number;
   totalMinutes: number;
   currentStreak: number;
+  hasLoggedToday: boolean;
 }
 
 type AddEntryInput = Omit<DiaryEntry, "id" | "userId" | "createdAt" | "updatedAt" | "xpAwarded">;
@@ -288,7 +289,12 @@ export function DiaryProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    return { totalEntries, totalMinutes, currentStreak };
+    const todayStr = today.toDateString();
+    const hasLoggedToday = entries.some(
+      (e) => new Date(e.date).toDateString() === todayStr
+    );
+
+    return { totalEntries, totalMinutes, currentStreak, hasLoggedToday };
   };
 
   return (
