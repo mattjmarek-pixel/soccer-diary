@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { View, StyleSheet, Image, Alert } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, StyleSheet, Image, Modal, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -15,6 +15,7 @@ import Animated, {
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ThemedText } from "@/components/ThemedText";
+import { Button } from "@/components/Button";
 import { StatCard } from "@/components/StatCard";
 import { SettingsRow } from "@/components/SettingsRow";
 import { CalendarHeatmap } from "@/components/CalendarHeatmap";
@@ -104,6 +105,8 @@ export default function ProfileScreen() {
   const { isPremium, subscriptionTier } = usePremium();
   const { getLevelInfo } = useXP();
   const levelInfo = getLevelInfo();
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleEditProfile = () => {
     navigation.navigate("EditProfile");
@@ -111,24 +114,14 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(
-      "Log Out",
-      "Are you sure you want to log out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Log Out",
-          style: "destructive",
-          onPress: async () => {
-            await signOut();
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "Auth" }],
-            });
-          },
-        },
-      ]
-    );
+    setLogoutModalVisible(true);
+  };
+
+  const confirmLogout = async () => {
+    setIsLoggingOut(true);
+    await signOut();
+    setLogoutModalVisible(false);
+    navigation.reset({ index: 0, routes: [{ name: "Auth" }] });
   };
 
   const formatMinutes = (minutes: number): string => {
@@ -139,6 +132,7 @@ export default function ProfileScreen() {
   };
 
   return (
+    <>
     <KeyboardAwareScrollViewCompat
       style={styles.container}
       contentContainerStyle={[
@@ -282,8 +276,88 @@ export default function ProfileScreen() {
         />
       </Animated.View>
     </KeyboardAwareScrollViewCompat>
+
+    <Modal
+      visible={logoutModalVisible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setLogoutModalVisible(false)}
+    >
+      <Pressable style={logoutModalStyles.overlay} onPress={() => setLogoutModalVisible(false)}>
+        <Pressable style={logoutModalStyles.card} onPress={(e) => e.stopPropagation()}>
+          <View style={logoutModalStyles.iconWrap}>
+            <Feather name="log-out" size={28} color="#FF5252" />
+          </View>
+          <ThemedText type="h3" style={logoutModalStyles.title}>Log Out</ThemedText>
+          <ThemedText type="body" style={logoutModalStyles.subtitle}>
+            Are you sure you want to log out of Soccer Diary?
+          </ThemedText>
+          <Button
+            onPress={confirmLogout}
+            disabled={isLoggingOut}
+            style={logoutModalStyles.logoutBtn}
+          >
+            {isLoggingOut ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              "Log Out"
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            onPress={() => setLogoutModalVisible(false)}
+            disabled={isLoggingOut}
+          >
+            Cancel
+          </Button>
+        </Pressable>
+      </Pressable>
+    </Modal>
+    </>
   );
 }
+
+const logoutModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: Spacing.xl,
+  },
+  card: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    width: "100%",
+    alignItems: "center",
+  },
+  iconWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#FF525220",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.lg,
+  },
+  title: {
+    color: Colors.dark.text,
+    marginBottom: Spacing.sm,
+    textAlign: "center",
+  },
+  subtitle: {
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: Spacing.xl,
+  },
+  logoutBtn: {
+    width: "100%",
+    marginBottom: Spacing.sm,
+    backgroundColor: "#FF5252",
+  },
+});
 
 const styles = StyleSheet.create({
   container: {
