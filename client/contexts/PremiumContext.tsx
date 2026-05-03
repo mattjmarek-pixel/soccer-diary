@@ -1,4 +1,8 @@
 import React, { createContext, useContext, ReactNode, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest, getQueryFn } from "@/lib/query-client";
+import { useAuth } from "./AuthContext";
+import type { User } from "../../shared/types";
 
 export type PremiumFeature =
   | "ai_insights"
@@ -13,26 +17,53 @@ interface PremiumContextType {
   subscriptionTier: "free" | "pro";
   isLoading: boolean;
   canAccessFeature: (feature: PremiumFeature) => boolean;
+  upgrade: () => Promise<void>;
 }
 
 const PremiumContext = createContext<PremiumContextType | undefined>(undefined);
 
-/**
- * All users are on the free tier until real payments are implemented.
- * The Upgrade screen now collects waitlist emails instead of toggling a fake flag.
- */
 export function PremiumProvider({ children }: { children: ReactNode }) {
-  const canAccessFeature = useCallback((_feature: PremiumFeature): boolean => {
-    return false;
-  }, []);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const { data: userProfile, isLoading } = useQuery<User>({
+    queryKey: ["/api/me"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    enabled: !!user,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const upgradeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/upgrade");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+    },
+  });
+
+  const isPremium = userProfile?.isPremium ?? false;
+
+  const canAccessFeature = useCallback(
+    (_feature: PremiumFeature): boolean => {
+      return isPremium;
+    },
+    [isPremium]
+  );
+
+  const upgrade = async () => {
+    await upgradeMutation.mutateAsync();
+  };
 
   return (
     <PremiumContext.Provider
       value={{
-        isPremium: false,
-        subscriptionTier: "free",
-        isLoading: false,
+        isPremium,
+        subscriptionTier: isPremium ? "pro" : "free",
+        isLoading,
         canAccessFeature,
+        upgrade,
       }}
     >
       {children}

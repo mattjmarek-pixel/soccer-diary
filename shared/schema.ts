@@ -8,6 +8,7 @@ import {
   timestamp,
   serial,
   date,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -26,6 +27,7 @@ export const users = pgTable("users", {
   preferredFoot: text("preferred_foot"),
   age: integer("age"),
   passwordHash: text("password_hash"),
+  isPremium: boolean("is_premium").notNull().default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

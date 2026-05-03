@@ -76,6 +76,11 @@ async function migrate() {
       )
     `);
 
+    // Add isPremium column to users if not present
+    await client.query(
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_premium BOOLEAN NOT NULL DEFAULT false"
+    ).catch(() => {});
+
     await client.query("COMMIT");
     console.log("Migration completed successfully");
   } catch (error) {

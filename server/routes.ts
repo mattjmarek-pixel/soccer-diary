@@ -395,6 +395,50 @@ Respond ONLY with valid JSON, no markdown or extra text.`,
     }
   });
 
+  /**
+   * GET /api/me — returns the authenticated user's profile including isPremium
+   */
+  app.get("/api/me", requireAuth, async (req, res) => {
+    try {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, req.user!.userId))
+        .limit(1);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const { passwordHash: _, ...safeUser } = user;
+      return res.json(safeUser);
+    } catch (error: any) {
+      return res.status(500).json({ message: error.message || "Failed to fetch user" });
+    }
+  });
+
+  /**
+   * POST /api/upgrade — marks the authenticated user as premium (placeholder for real payment)
+   */
+  app.post("/api/upgrade", requireAuth, async (req, res) => {
+    try {
+      const [updated] = await db
+        .update(users)
+        .set({ isPremium: true })
+        .where(eq(users.id, req.user!.userId))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const { passwordHash: _, ...safeUser } = updated;
+      return res.json({ success: true, user: safeUser });
+    } catch (error: any) {
+      return res.status(500).json({ message: error.message || "Failed to upgrade account" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

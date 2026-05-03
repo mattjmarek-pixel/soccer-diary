@@ -1,0 +1,213 @@
+You are working on Soccer Diary, a React Native (Expo) + Express.js app. There are several critical architectural issues to fix. Work through them in order.
+
+---
+
+## 1. Fix package.json name
+
+In `package.json`, change:
+  "name": "my-app"
+to:
+  "name": "soccer-diary"
+
+---
+
+## 2. Remove unused and Replit-specific dependencies
+
+Remove the following from `dependencies` in `package.json`:
+- `@octokit/rest` — not used by the app
+- `expo-contacts` — not used, triggers unwanted permission prompts
+- `expo-mail-composer` — not used
+- `expo-sms` — not used
+- `@replit/connectors-sdk` — Replit-only, should not ship to users
+
+Run `npm install` after removing them.
+
+---
+
+## 3. Add diary_entries table to the database schema
+
+In `shared/schema.ts`, add a `diaryEntries` table using Drizzle ORM:
+
+```ts
+import { pgTable, uuid, text, integer, timestamp, jsonb } from 'drizzle-orm/pg-core';
+
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  appleId: text('apple_id').unique(),
+  googleId: text('google_id').unique(),
+  email: text('email'),
+  name: text('name'),
+  avatarUrl: text('avatar_url'),
+  team: text('team'),
+  position: text('position'),
+  preferredFoot: text('preferred_foot'),
+  age: integer('age'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const diaryEntries = pgTable('diary_entries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(), // ISO date string e.g. "2026-05-03"
+  mood: integer('mood').notNull(), // 1-5
+  durationMinutes: integer('duration_minutes').notNull(),
+  notes: text('notes'),
+  skills: jsonb('skills'), // array of { name: string, notes: string }
+  mediaUrls: jsonb('media_urls'), // array of strings
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+```
+
+Replace any existing users table definition with this updated one. Run `npm run db:push` to apply to the database.
+
+---
+
+## 4. Add server-side diary entry API routes
+
+In `server/routes.ts`, add CRUD routes for diary entries. Use the `diaryEntries` table via Drizzle. Assume the authenticated userId is passed as a header `x-user-id` for now (we will add real auth in the next step).
+
+Add these routes:
+- `GET /api/entries` — return all entries for the user (filter by x-user-id header), ordered by date desc
+- `POST /api/entries` — create a new entry, return the created entry
+- `PUT /api/entries/:id` — update an entry (only if it belongs to the user)
+- `DELETE /api/entries/:id` — delete an entry (only if it belongs to the user)
+
+Use Zod for request body validation. Import and use the `diaryEntries` table from `shared/schema.ts`.
+
+---
+
+## 5. Update DiaryContext to use the server API instead of AsyncStorage
+
+In `client/context/DiaryContext.tsx` (or wherever DiaryContext is defined):
+
+- Replace all AsyncStorage reads/writes for diary entries with fetch calls to the Express API (`/api/entries`)
+- Use TanStack Query (`@tanstack/react-query`) for all data fetching:
+  - `useQuery` to fetch the list of entries on mount
+  - `useMutation` for create, update, delete — with optimistic updates
+- The API base URL should come from `process.env.EXPO_PUBLIC_DOMAIN` or fall back to `http://localhost:5000`
+- Pass the current user's ID as the `x-user-id` header on every request (get it from AuthContext)
+- Keep a local fallback in AsyncStorage only as a cache — do not use it as the source of truth
+- Handle loading and error states and surface them to the UI
+
+---
+
+## 6. Implement real authentication with Apple Sign-In
+
+The app currently uses fake simulated auth stored in AsyncStorage. Replace it with real Apple Sign-In on iOS.
+
+### Server side
+In `server/routes.ts`, add:
+- `POST /api/auth/apple` — accepts `{ identityToken, fullName }` in the body
+  - Verify the Apple identity token using the `apple-signin-auth` npm package (add it to dependencies)
+  - Extract the `sub` (Apple user ID) and `email` from the verified token
+  - Upsert a user in the `users` table based on `appleId`
+  - Return a signed JWT using the `jsonwebtoken` npm package (add it). Sign with a `JWT_SECRET` environment variable. Include `{ userId, email }` in the payload. Token should expire in 30 days.
+
+In `server/index.ts`, add JWT middleware:
+- Create a middleware `requireAuth` that reads the `Authorization: Bearer <token>` header, verifies with `JWT_SECRET`, and attaches `req.userId` to the request
+- Apply `requireAuth` to all `/api/entries` routes
+
+### Client side
+In `client/context/AuthContext.tsx`:
+- Remove the simulated AsyncStorage auth logic
+- Use `expo-apple-authentication` to trigger Apple Sign-In
+- On success, send the `identityToken` and `fullName` to `POST /api/auth/apple`
+- Store the returned JWT in AsyncStorage under the key `auth_token`
+- On app load, check if a valid JWT exists in AsyncStorage and restore the session
+- On logout, delete the JWT from AsyncStorage
+- Provide `userId`, `userToken`, `signInWithApple`, and `signOut` from the context
+- Send `Authorization: Bearer <token>` on every API request (update all fetch calls in DiaryContext to include this header)
+
+Update `app.json` to ensure `expo-apple-authentication` plugin is listed (it already is).
+
+---
+
+## 7. Fix the premium system to use server-verified entitlements
+
+Currently premium status is a boolean flag in AsyncStorage that anyone can fake.
+
+- Add a `isPremium` boolean column (default false) to the `users` table in `shared/schema.ts`
+- In `server/routes.ts`, add `GET /api/me` which returns the current user's profile including `isPremium`, protected by `requireAuth`
+- In `client/context/PremiumContext.tsx`, replace the AsyncStorage flag with a fetch to `GET /api/me` using TanStack Query. Derive `isPremium` from the server response.
+- The "Upgrade to Premium" flow should call a new `POST /api/upgrade` endpoint which sets `isPremium = true` for the user (placeholder for real payment integration later — just make the endpoint work and protect it with requireAuth).
+- Remove all AsyncStorage reads/writes for premium status.
+
+---
+
+## 8. Clean up shared/ folder
+
+In `shared/schema.ts`, remove the `conversations` and `messages` tables — these are Replit AI scaffolding and are not used by Soccer Diary. The Replit AI integration files in `server/replit_integrations/` and `client/replit_integrations/` can remain for now but should not be imported anywhere in the core app.
+
+Create `shared/types.ts` with TypeScript types for the domain model:
+
+```ts
+export type Skill = {
+  name: string;
+  notes?: string;
+};
+
+export type DiaryEntry = {
+  id: string;
+  userId: string;
+  date: string;
+  mood: number; // 1-5
+  durationMinutes: number;
+  notes?: string;
+  skills?: Skill[];
+  mediaUrls?: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type User = {
+  id: string;
+  email?: string;
+  name?: string;
+  avatarUrl?: string;
+  team?: string;
+  position?: string;
+  preferredFoot?: string;
+  age?: number;
+  isPremium: boolean;
+};
+```
+
+Import and use these types throughout the client and server instead of defining inline types.
+
+---
+
+## 9. Write a proper README.md
+
+Replace the 2-line README with a complete one that includes:
+- Project description and screenshot placeholder
+- Tech stack (React Native, Expo SDK 54, Express.js, PostgreSQL, Drizzle ORM, TanStack Query)
+- Prerequisites (Node.js 20+, PostgreSQL, Expo CLI, iOS Simulator or physical device)
+- Environment variables needed:
+  - `DATABASE_URL`
+  - `JWT_SECRET`
+  - `AI_INTEGRATIONS_OPENAI_API_KEY`
+  - `REPLIT_DEV_DOMAIN`
+  - `EXPO_PUBLIC_DOMAIN`
+- Setup instructions: clone, npm install, db:push, run server:dev and expo:dev
+- Available scripts
+- Architecture overview (client/server/shared structure)
+- Roadmap (Google Sign-In, real payment integration, push notifications for streak reminders)
+
+---
+
+## Verification checklist
+
+After making all changes, confirm:
+- [ ] `npm run check:types` passes with no errors
+- [ ] `npm run lint` passes
+- [ ] `npm run db:push` runs successfully
+- [ ] `npm run server:dev` starts without errors
+- [ ] Creating a diary entry from the app persists to PostgreSQL (not just AsyncStorage)
+- [ ] Auth flow completes and stores a JWT
+- [ ] All diary API routes return 401 without a valid token
+- [ ] Premium status comes from the server, not AsyncStorage
+
+A few notes on using this prompt effectively:
+The auth step (step 6) is the most complex — if the Replit agent struggles with it, you can break it into two separate runs: one for the server-side token verification and one for the client-side Apple Sign-In flow. Also, if you're not ready to drop Google Sign-In entirely, you can add a POST /api/auth/google endpoint later following the same pattern — it's not in this prompt to keep it focused, since Apple Sign-In covers iOS which is your primary target.
+The JWT secret — make sure you add JWT_SECRET as a Replit secret (not hardcoded) before running the verification checklist.
