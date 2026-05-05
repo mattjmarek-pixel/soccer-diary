@@ -22,6 +22,7 @@ const ICON_SIZE = 44;
 
 type TrainTodayProps = {
   hasLoggedToday: boolean;
+  streakAtRisk: boolean;
   currentStreak: number;
   totalEntries: number;
   onLogSession: () => void;
@@ -64,6 +65,7 @@ function PulseRing({ color }: { color: string }) {
 
 export function TrainTodayCard({
   hasLoggedToday,
+  streakAtRisk,
   currentStreak,
   totalEntries,
   onLogSession,
@@ -108,12 +110,10 @@ export function TrainTodayCard({
   };
 
   const isNewUser = totalEntries === 0;
-  const streakAtRisk = !hasLoggedToday && currentStreak > 0;
-
   const promptAccent = streakAtRisk ? AMBER : GREEN;
 
   const promptIcon: React.ComponentProps<typeof Feather>["name"] = streakAtRisk
-    ? "zap"
+    ? "alert-triangle"
     : isNewUser
     ? "play-circle"
     : "zap";
@@ -151,10 +151,13 @@ export function TrainTodayCard({
         <View
           style={[
             styles.card,
+            streakAtRisk && !hasLoggedToday && styles.cardAtRisk,
             {
               borderColor: hasLoggedToday
                 ? GREEN + "55"
-                : promptAccent + "55",
+                : streakAtRisk
+                ? AMBER + "99"
+                : GREEN + "55",
             },
           ]}
         >
@@ -222,6 +225,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
+  },
+  cardAtRisk: {
+    backgroundColor: AMBER + "08",
   },
   heightHolder: {
     height: 44,

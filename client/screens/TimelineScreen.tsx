@@ -163,6 +163,7 @@ export default function TimelineScreen() {
       <View>
         <TrainTodayCard
           hasLoggedToday={stats.hasLoggedToday}
+          streakAtRisk={stats.streakAtRisk}
           currentStreak={stats.currentStreak}
           totalEntries={stats.totalEntries}
           onLogSession={handleNewEntry}
