@@ -46,7 +46,7 @@ function SkillBar({
         <View
           style={[
             styles.skillFill,
-            { width: `${rating}%` as any, backgroundColor: color },
+            { width: `${rating}%` as `${number}%`, backgroundColor: color },
           ]}
         />
       </View>
@@ -72,9 +72,9 @@ export default function PlayerCardScreen() {
       e.skills.some((s) => s.category === cat)
     ).length;
     const rating =
-      totalEntries > 0
-        ? Math.max(1, Math.round((count / totalEntries) * 99))
-        : 0;
+      count === 0 || totalEntries === 0
+        ? 0
+        : Math.max(1, Math.round((count / totalEntries) * 99));
     return { category: cat, rating };
   })
     .filter((s) => s.rating > 0)
@@ -180,7 +180,7 @@ export default function PlayerCardScreen() {
                 style={[
                   styles.xpBarFill,
                   {
-                    width: `${xpProgressPct}%` as any,
+                    width: `${xpProgressPct}%` as `${number}%`,
                     backgroundColor: levelColor,
                   },
                 ]}
