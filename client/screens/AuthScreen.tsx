@@ -5,7 +5,6 @@ import {
   Image,
   TextInput,
   Pressable,
-  Alert,
   ActivityIndicator,
   Platform,
 } from "react-native";
@@ -36,6 +35,7 @@ export default function AuthScreen({ navigation }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleSuccess = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -46,10 +46,11 @@ export default function AuthScreen({ navigation }: Props) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     const msg = error?.message || "Something went wrong. Please try again.";
     if (msg.includes("cancelled") || msg.includes("canceled")) return;
-    Alert.alert("Sign-in failed", msg);
+    setErrorMsg(msg);
   };
 
   const handleApple = async () => {
+    setErrorMsg("");
     setIsLoading(true);
     try {
       await signInWithApple();
@@ -62,6 +63,7 @@ export default function AuthScreen({ navigation }: Props) {
   };
 
   const handleGoogle = async () => {
+    setErrorMsg("");
     setIsLoading(true);
     try {
       await signInWithGoogle();
@@ -74,9 +76,10 @@ export default function AuthScreen({ navigation }: Props) {
   };
 
   const handleEmailSignIn = async () => {
+    setErrorMsg("");
     if (!email || !password) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Missing fields", "Please enter your email and password.");
+      setErrorMsg("Please enter your email and password.");
       return;
     }
     setIsLoading(true);
@@ -91,13 +94,14 @@ export default function AuthScreen({ navigation }: Props) {
   };
 
   const handleEmailSignUp = async () => {
+    setErrorMsg("");
     if (!name || !email || !password) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Missing fields", "Please fill in all fields.");
+      setErrorMsg("Please fill in all fields.");
       return;
     }
     if (password.length < 8) {
-      Alert.alert("Weak password", "Password must be at least 8 characters.");
+      setErrorMsg("Password must be at least 8 characters.");
       return;
     }
     setIsLoading(true);
@@ -192,6 +196,15 @@ export default function AuthScreen({ navigation }: Props) {
               </ThemedText>
             </ThemedText>
           </Pressable>
+
+          {errorMsg.length > 0 ? (
+            <View style={styles.errorBanner} testID="auth-error-banner">
+              <Feather name="alert-circle" size={14} color={Colors.dark.error} />
+              <ThemedText type="small" style={styles.errorBannerText}>
+                {errorMsg}
+              </ThemedText>
+            </View>
+          ) : null}
         </View>
       </View>
     );
@@ -272,6 +285,15 @@ export default function AuthScreen({ navigation }: Props) {
             testID="input-password"
           />
         </View>
+
+        {errorMsg.length > 0 ? (
+          <View style={styles.errorBanner} testID="auth-error-banner">
+            <Feather name="alert-circle" size={14} color={Colors.dark.error} />
+            <ThemedText type="small" style={styles.errorBannerText}>
+              {errorMsg}
+            </ThemedText>
+          </View>
+        ) : null}
 
         <Button
           onPress={isSignUp ? handleEmailSignUp : handleEmailSignIn}
@@ -404,6 +426,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     fontSize: 16,
     color: Colors.dark.text,
+  },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.error + "1A",
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  errorBannerText: {
+    color: Colors.dark.error,
+    flex: 1,
   },
   submitButton: {
     marginTop: Spacing.lg,

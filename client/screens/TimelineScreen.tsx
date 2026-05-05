@@ -141,7 +141,7 @@ export default function TimelineScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const { entries, isLoading, refreshEntries, stats } = useDiary();
+  const { entries, isLoading, isError, refreshEntries, stats } = useDiary();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   const handleRefresh = useCallback(async () => {
@@ -201,6 +201,20 @@ export default function TimelineScreen() {
     );
   }
 
+  if (isError) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Feather name="wifi-off" size={40} color={Colors.dark.textSecondary} />
+        <ThemedText type="body" style={styles.errorText}>
+          Could not load your training diary.
+        </ThemedText>
+        <ThemedText type="small" style={styles.errorSubtext}>
+          Pull down to try again.
+        </ThemedText>
+      </View>
+    );
+  }
+
   return (
     <FlatList
       style={styles.container}
@@ -244,6 +258,16 @@ const styles = StyleSheet.create({
   centered: {
     alignItems: "center",
     justifyContent: "center",
+  },
+  errorText: {
+    color: Colors.dark.text,
+    marginTop: Spacing.lg,
+    textAlign: "center",
+  },
+  errorSubtext: {
+    color: Colors.dark.textSecondary,
+    marginTop: Spacing.xs,
+    textAlign: "center",
   },
   bannerCard: {
     backgroundColor: Colors.dark.backgroundDefault,

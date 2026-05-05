@@ -77,6 +77,8 @@ Located in `server/replit_integrations/` and `client/replit_integrations/`:
 - `npm run server:prod` — Run production server
 - `npm run db:push` — Push Drizzle schema to PostgreSQL
 - `npm run expo:static:build` — Build Expo web output for static serving
+- `npm run check:types` — TypeScript type check (must pass, zero errors)
+- `npm run lint` — ESLint via expo lint
 
 ## External Dependencies
 

@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState } from "react";
-import { View, ScrollView, StyleSheet, Dimensions, LayoutChangeEvent } from "react-native";
+import { View, ScrollView, StyleSheet, Dimensions, LayoutChangeEvent, ActivityIndicator } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
@@ -172,7 +172,7 @@ const skillBarStyles = StyleSheet.create({
 export default function StatsScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const { entries, stats } = useDiary();
+  const { entries, stats, isLoading, isError } = useDiary();
 
   const screenWidth = Dimensions.get("window").width - Spacing.lg * 2 - Spacing.lg * 2;
   const chartWidth = screenWidth;
@@ -256,6 +256,28 @@ export default function StatsScreen() {
 
   const barDrawableHeight = BAR_CHART_HEIGHT - PADDING_TOP - PADDING_BOTTOM;
   const barWidth = Math.max((drawableWidth / 14) - 4, 4);
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={Colors.dark.primary} />
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Feather name="wifi-off" size={40} color={Colors.dark.textSecondary} />
+        <ThemedText type="body" style={styles.errorText}>
+          Could not load your stats.
+        </ThemedText>
+        <ThemedText type="small" style={styles.errorSubtext}>
+          Check your connection and try again.
+        </ThemedText>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -450,6 +472,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  centered: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  errorText: {
+    color: Colors.dark.text,
+    marginTop: Spacing.lg,
+    textAlign: "center",
+  },
+  errorSubtext: {
+    color: Colors.dark.textSecondary,
+    marginTop: Spacing.xs,
+    textAlign: "center",
   },
   content: {
     paddingHorizontal: Spacing.lg,
