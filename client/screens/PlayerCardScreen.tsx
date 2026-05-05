@@ -23,7 +23,6 @@ import {
   SkillCategories,
   SkillColors,
   SkillCategory,
-  getLevelInfo,
 } from "@/constants/theme";
 import { useDiary } from "@/contexts/DiaryContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,12 +39,16 @@ function SkillBar({
   color: string;
   delay: number;
 }) {
-  const widthPct = `${rating}%` as const;
   return (
     <Animated.View entering={FadeIn.delay(delay).duration(400)} style={styles.skillRow}>
       <ThemedText style={styles.skillLabel}>{category.toUpperCase()}</ThemedText>
       <View style={styles.skillTrack}>
-        <View style={[styles.skillFill, { width: widthPct, backgroundColor: color }]} />
+        <View
+          style={[
+            styles.skillFill,
+            { width: `${rating}%` as any, backgroundColor: color },
+          ]}
+        />
       </View>
       <ThemedText style={[styles.skillRating, { color }]}>{rating}</ThemedText>
     </Animated.View>
@@ -55,16 +58,13 @@ function SkillBar({
 export default function PlayerCardScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const { entries, stats } = useDiary();
+  const { entries, stats, getLevelInfo } = useDiary();
   const { user } = useAuth();
   const { isPremium } = usePremium();
   const cardRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
 
-  const levelInfo = getLevelInfo(
-    entries.reduce((sum, e) => sum + (e.xpAwarded ?? 0), 0)
-  );
-
+  const levelInfo = getLevelInfo();
   const totalEntries = entries.length;
 
   const skillRatings = SkillCategories.map((cat) => {
@@ -77,6 +77,7 @@ export default function PlayerCardScreen() {
         : 0;
     return { category: cat, rating };
   })
+    .filter((s) => s.rating > 0)
     .sort((a, b) => b.rating - a.rating)
     .slice(0, 3);
 
@@ -106,6 +107,7 @@ export default function PlayerCardScreen() {
   const position = user?.position || null;
   const team = user?.team || null;
   const levelColor = levelInfo.current.color;
+  const xpProgressPct = Math.round(levelInfo.progress * 100);
 
   return (
     <ScrollView
@@ -120,55 +122,110 @@ export default function PlayerCardScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View ref={cardRef} collapsable={false}>
-        <View style={[styles.card, { backgroundColor: "#152015" }]}>
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: levelColor + "18", borderRadius: BorderRadius.lg }]} />
+        <View style={[styles.card, { backgroundColor: "#16213E" }]}>
+          {/* Coloured accent bar at top */}
+          <View style={[styles.accentBar, { backgroundColor: levelColor }]} />
 
-          <View style={styles.cardHeader}>
-            <View style={[styles.levelBadge, { backgroundColor: levelColor + "22", borderColor: levelColor + "66" }]}>
-              <ThemedText style={[styles.levelBadgeText, { color: levelColor }]}>
-                {levelInfo.current.name.toUpperCase()}
+          {/* Name row + PRO badge */}
+          <View style={styles.nameRow}>
+            <View style={styles.nameBlock}>
+              <ThemedText style={styles.playerName} numberOfLines={1}>
+                {playerName}
               </ThemedText>
+              {position ? (
+                <ThemedText style={[styles.positionText, { color: levelColor }]}>
+                  {position.toUpperCase()}
+                </ThemedText>
+              ) : null}
+              {team ? (
+                <ThemedText style={styles.teamText} numberOfLines={1}>
+                  {team}
+                </ThemedText>
+              ) : null}
             </View>
             {isPremium ? (
               <View style={styles.proBadge}>
+                <Feather name="star" size={9} color={Colors.dark.accent} />
                 <ThemedText style={styles.proBadgeText}>PRO</ThemedText>
               </View>
             ) : null}
           </View>
 
-          <View style={styles.nameBlock}>
-            <ThemedText style={styles.playerName}>{playerName}</ThemedText>
-            {position ? (
-              <ThemedText style={styles.positionText}>{position}</ThemedText>
-            ) : null}
-            {team ? (
-              <ThemedText style={styles.teamText}>{team}</ThemedText>
-            ) : null}
+          {/* Circular level ring */}
+          <View style={styles.levelSection}>
+            <View
+              style={[
+                styles.levelRing,
+                { borderColor: levelColor + "99" },
+              ]}
+            >
+              <View
+                style={[
+                  styles.levelRingInner,
+                  { backgroundColor: levelColor + "20" },
+                ]}
+              >
+                <ThemedText style={[styles.levelRingName, { color: levelColor }]}>
+                  {levelInfo.current.name.toUpperCase()}
+                </ThemedText>
+                <ThemedText style={[styles.levelRingXp, { color: levelColor + "BB" }]}>
+                  {levelInfo.totalXp.toLocaleString()} XP
+                </ThemedText>
+              </View>
+            </View>
+
+            {/* XP progress bar */}
+            <View style={styles.xpBarTrack}>
+              <View
+                style={[
+                  styles.xpBarFill,
+                  {
+                    width: `${xpProgressPct}%` as any,
+                    backgroundColor: levelColor,
+                  },
+                ]}
+              />
+            </View>
+            {levelInfo.next ? (
+              <ThemedText style={styles.xpNextLabel}>
+                {levelInfo.xpInLevel} / {levelInfo.xpForNext} XP to {levelInfo.next.name}
+              </ThemedText>
+            ) : (
+              <ThemedText style={styles.xpNextLabel}>Max level reached</ThemedText>
+            )}
           </View>
 
           <View style={styles.divider} />
 
+          {/* Top skills */}
           <View style={styles.skillsBlock}>
             <ThemedText style={styles.skillsHeading}>TOP SKILLS</ThemedText>
-            {skillRatings.map(({ category, rating }, i) => (
-              <SkillBar
-                key={category}
-                category={category}
-                rating={rating}
-                color={SkillColors[category]}
-                delay={i * 80}
-              />
-            ))}
+            {skillRatings.length > 0 ? (
+              skillRatings.map(({ category, rating }, i) => (
+                <SkillBar
+                  key={category}
+                  category={category}
+                  rating={rating}
+                  color={SkillColors[category]}
+                  delay={i * 80}
+                />
+              ))
+            ) : (
+              <ThemedText style={styles.noSkillsText}>
+                Log sessions with skills to unlock ratings
+              </ThemedText>
+            )}
           </View>
 
           <View style={styles.divider} />
 
+          {/* Footer stats */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <ThemedText style={[styles.statValue, { color: Colors.dark.primary }]}>
                 {stats.currentStreak}
               </ThemedText>
-              <ThemedText style={styles.statLabel}>Day Streak</ThemedText>
+              <ThemedText style={styles.statLabel}>Streak</ThemedText>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -180,12 +237,13 @@ export default function PlayerCardScreen() {
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <ThemedText style={[styles.statValue, { color: Colors.dark.accent }]}>
-                {levelInfo.totalXp.toLocaleString()}
+                {stats.totalMinutes}
               </ThemedText>
-              <ThemedText style={styles.statLabel}>Total XP</ThemedText>
+              <ThemedText style={styles.statLabel}>Minutes</ThemedText>
             </View>
           </View>
 
+          {/* Wordmark */}
           <View style={styles.wordmarkRow}>
             <Feather name="target" size={10} color={Colors.dark.primary} />
             <ThemedText style={styles.wordmark}>Soccer Diary</ThemedText>
@@ -203,10 +261,10 @@ export default function PlayerCardScreen() {
           {sharing ? (
             <ActivityIndicator size="small" color={Colors.dark.buttonText} />
           ) : (
-            <>
+            <View style={styles.shareButtonInner}>
               <Feather name="share-2" size={18} color={Colors.dark.buttonText} />
               <ThemedText style={styles.shareLabel}>Share Card</ThemedText>
-            </>
+            </View>
           )}
         </Pressable>
       </Animated.View>
@@ -232,75 +290,121 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     borderRadius: BorderRadius.lg,
-    padding: CARD_PADDING,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "33",
+    borderColor: "#FFFFFF12",
     overflow: "hidden",
   },
-  cardHeader: {
+  accentBar: {
+    height: 5,
+    width: "100%",
+  },
+  nameRow: {
     flexDirection: "row",
+    alignItems: "flex-start",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.lg,
+    padding: CARD_PADDING,
+    paddingBottom: Spacing.lg,
   },
-  levelBadge: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
+  nameBlock: {
+    flex: 1,
+    marginRight: Spacing.md,
   },
-  levelBadgeText: {
-    fontSize: 10,
+  playerName: {
+    fontSize: 26,
+    fontWeight: "700",
+    fontFamily: "Montserrat_700Bold",
+    color: Colors.dark.text,
+    letterSpacing: -0.5,
+    marginBottom: 4,
+  },
+  positionText: {
+    fontSize: 11,
     fontWeight: "700",
     fontFamily: "Montserrat_700Bold",
     letterSpacing: 1.5,
+    marginBottom: 3,
+  },
+  teamText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
   },
   proBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs - 1,
-    borderRadius: BorderRadius.xs,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
     backgroundColor: Colors.dark.accent + "22",
     borderWidth: 1,
     borderColor: Colors.dark.accent + "66",
   },
   proBadgeText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "700",
     fontFamily: "Montserrat_700Bold",
     color: Colors.dark.accent,
     letterSpacing: 1.5,
   },
-  nameBlock: {
+  levelSection: {
+    alignItems: "center",
+    paddingHorizontal: CARD_PADDING,
+    paddingBottom: CARD_PADDING,
+  },
+  levelRing: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: Spacing.lg,
   },
-  playerName: {
-    fontSize: 28,
-    fontWeight: "700",
-    fontFamily: "Montserrat_700Bold",
-    color: Colors.dark.text,
-    letterSpacing: -0.5,
-    marginBottom: 2,
+  levelRingInner: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  positionText: {
-    fontSize: 13,
-    color: Colors.dark.primary,
+  levelRingName: {
+    fontSize: 11,
+    fontWeight: "800",
+    fontFamily: "Montserrat_700Bold",
+    letterSpacing: 1.5,
+    textAlign: "center",
+  },
+  levelRingXp: {
+    fontSize: 10,
     fontWeight: "600",
-    fontFamily: "Montserrat_700Bold",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    marginBottom: 2,
+    marginTop: 4,
   },
-  teamText: {
-    fontSize: 12,
+  xpBarTrack: {
+    width: "100%",
+    height: 5,
+    backgroundColor: "#FFFFFF14",
+    borderRadius: 2.5,
+    overflow: "hidden",
+    marginBottom: 6,
+  },
+  xpBarFill: {
+    height: "100%",
+    borderRadius: 2.5,
+  },
+  xpNextLabel: {
+    fontSize: 10,
     color: Colors.dark.textSecondary,
-    marginTop: 2,
+    letterSpacing: 0.3,
   },
   divider: {
     height: 1,
-    backgroundColor: Colors.dark.text + "14",
-    marginVertical: Spacing.lg,
+    backgroundColor: "#FFFFFF12",
+    marginHorizontal: CARD_PADDING,
+    marginBottom: CARD_PADDING,
   },
   skillsBlock: {
+    paddingHorizontal: CARD_PADDING,
+    paddingBottom: CARD_PADDING,
     gap: Spacing.sm,
   },
   skillsHeading: {
@@ -308,7 +412,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontFamily: "Montserrat_700Bold",
     color: Colors.dark.textSecondary,
-    letterSpacing: 1.5,
+    letterSpacing: 2,
     marginBottom: Spacing.xs,
   },
   skillRow: {
@@ -342,10 +446,17 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontFamily: "Montserrat_700Bold",
   },
+  noSkillsText: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    fontStyle: "italic",
+  },
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
+    paddingHorizontal: CARD_PADDING,
+    paddingBottom: CARD_PADDING,
   },
   statItem: {
     alignItems: "center",
@@ -365,14 +476,17 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 32,
-    backgroundColor: Colors.dark.text + "14",
+    backgroundColor: "#FFFFFF12",
   },
   wordmarkRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.xs,
-    marginTop: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: "#FFFFFF10",
+    paddingVertical: Spacing.md,
+    marginHorizontal: CARD_PADDING,
   },
   wordmark: {
     fontSize: 10,
@@ -387,16 +501,19 @@ const styles = StyleSheet.create({
     marginTop: Spacing["2xl"],
   },
   shareButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
     backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.sm,
     height: 52,
+    alignItems: "center",
+    justifyContent: "center",
   },
   shareButtonPressed: {
     opacity: 0.85,
+  },
+  shareButtonInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
   },
   shareLabel: {
     fontSize: 15,
