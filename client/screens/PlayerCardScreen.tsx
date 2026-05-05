@@ -197,24 +197,33 @@ export default function PlayerCardScreen() {
 
           <View style={styles.divider} />
 
-          {/* Top skills */}
+          {/* Top skills — always render 3 rows */}
           <View style={styles.skillsBlock}>
             <ThemedText style={styles.skillsHeading}>TOP SKILLS</ThemedText>
-            {skillRatings.length > 0 ? (
-              skillRatings.map(({ category, rating }, i) => (
+            {[0, 1, 2].map((i) => {
+              const skill = skillRatings[i];
+              return skill ? (
                 <SkillBar
-                  key={category}
-                  category={category}
-                  rating={rating}
-                  color={SkillColors[category]}
+                  key={skill.category}
+                  category={skill.category}
+                  rating={skill.rating}
+                  color={SkillColors[skill.category]}
                   delay={i * 80}
                 />
-              ))
-            ) : (
-              <ThemedText style={styles.noSkillsText}>
-                Log sessions with skills to unlock ratings
-              </ThemedText>
-            )}
+              ) : (
+                <View key={`placeholder-${i}`} style={styles.skillRow}>
+                  <ThemedText style={[styles.skillLabel, styles.skillLabelDim]}>
+                    UNLOCK
+                  </ThemedText>
+                  <View style={styles.skillTrack}>
+                    <View style={[styles.skillFill, { width: "0%", backgroundColor: Colors.dark.textSecondary }]} />
+                  </View>
+                  <ThemedText style={[styles.skillRating, { color: Colors.dark.textSecondary }]}>
+                    —
+                  </ThemedText>
+                </View>
+              );
+            })}
           </View>
 
           <View style={styles.divider} />
@@ -419,6 +428,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
+  },
+  skillLabelDim: {
+    opacity: 0.3,
   },
   skillLabel: {
     width: 72,
