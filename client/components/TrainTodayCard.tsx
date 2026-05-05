@@ -9,6 +9,7 @@ import Animated, {
   withTiming,
   withSpring,
   Easing,
+  interpolate,
 } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
 
@@ -17,6 +18,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 
 const AMBER = "#FF9500";
 const GREEN = Colors.dark.primary;
+const ICON_SIZE = 44;
 
 type TrainTodayProps = {
   hasLoggedToday: boolean;
@@ -55,11 +57,7 @@ function PulseRing({ color }: { color: string }) {
 
   return (
     <Animated.View
-      style={[
-        styles.pulseRing,
-        { borderColor: color },
-        ring,
-      ]}
+      style={[styles.pulseRing, { borderColor: color }, ring]}
     />
   );
 }
@@ -70,10 +68,36 @@ export function TrainTodayCard({
   totalEntries,
   onLogSession,
 }: TrainTodayProps) {
+  const progress = useSharedValue(hasLoggedToday ? 1 : 0);
   const cardScale = useSharedValue(1);
+
+  useEffect(() => {
+    progress.value = withSpring(hasLoggedToday ? 1 : 0, {
+      damping: 18,
+      stiffness: 120,
+    });
+  }, [hasLoggedToday]);
 
   const cardStyle = useAnimatedStyle(() => ({
     transform: [{ scale: cardScale.value }],
+  }));
+
+  const promptStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 0.5], [1, 0], "clamp"),
+    transform: [
+      { translateY: interpolate(progress.value, [0, 1], [0, -6]) },
+    ],
+  }));
+
+  const completeStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0.5, 1], [0, 1], "clamp"),
+    transform: [
+      { translateY: interpolate(progress.value, [0, 1], [6, 0]) },
+    ],
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
   }));
 
   const handlePressIn = () => {
@@ -86,88 +110,110 @@ export function TrainTodayCard({
   const isNewUser = totalEntries === 0;
   const streakAtRisk = !hasLoggedToday && currentStreak > 0;
 
-  const accentColor = hasLoggedToday
-    ? GREEN
-    : streakAtRisk
-    ? AMBER
-    : GREEN;
+  const promptAccent = streakAtRisk ? AMBER : GREEN;
 
-  const iconName: React.ComponentProps<typeof Feather>["name"] = hasLoggedToday
-    ? "check-circle"
-    : streakAtRisk
+  const promptIcon: React.ComponentProps<typeof Feather>["name"] = streakAtRisk
     ? "zap"
     : isNewUser
     ? "play-circle"
     : "zap";
 
-  const title = hasLoggedToday
-    ? "Trained today!"
-    : streakAtRisk
-    ? `Day ${currentStreak} — Don't break it!`
+  const promptTitle = streakAtRisk
+    ? `Day ${currentStreak} — Don't break your streak!`
     : isNewUser
     ? "Begin your journey"
-    : "Start your streak!";
+    : currentStreak > 0
+    ? `Day ${currentStreak} — keep it going!`
+    : "Start your streak today!";
 
-  const subtitle = hasLoggedToday
-    ? currentStreak > 1
-      ? `${currentStreak}-day streak and counting`
-      : "Great work getting on the pitch"
-    : streakAtRisk
+  const promptSubtitle = streakAtRisk
     ? "Train today to protect your streak"
     : isNewUser
     ? "Log your first session and start tracking"
-    : "Log a session today to begin your run";
+    : currentStreak > 0
+    ? "Log a session to extend your run"
+    : "Log a session today to begin your streak";
 
-  if (hasLoggedToday) {
-    return (
-      <Animated.View entering={FadeIn.duration(350)} style={[styles.card, { borderColor: accentColor + "55" }]}>
-        <View style={styles.inner}>
-          <View style={styles.iconWrap}>
-            <PulseRing color={accentColor} />
-            <View style={[styles.iconCircle, { backgroundColor: accentColor + "22" }]}>
-              <Feather name={iconName} size={22} color={accentColor} />
-            </View>
-          </View>
-          <View style={styles.textBlock}>
-            <ThemedText style={[styles.title, { color: accentColor }]}>{title}</ThemedText>
-            <ThemedText style={styles.subtitle}>{subtitle}</ThemedText>
-          </View>
-          <View style={[styles.doneBadge, { backgroundColor: accentColor + "18", borderColor: accentColor + "44" }]}>
-            <Feather name="check" size={14} color={accentColor} />
-          </View>
-        </View>
-      </Animated.View>
-    );
-  }
+  const completeTitle = "Trained today!";
+  const completeSubtitle =
+    currentStreak > 1
+      ? `${currentStreak}-day streak and counting`
+      : "Great work getting on the pitch";
 
   return (
-    <Animated.View entering={FadeIn.duration(350)} style={cardStyle}>
+    <Animated.View entering={FadeIn.duration(300)} style={cardStyle}>
       <Pressable
-        onPress={onLogSession}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
+        onPress={hasLoggedToday ? undefined : onLogSession}
+        onPressIn={hasLoggedToday ? undefined : handlePressIn}
+        onPressOut={hasLoggedToday ? undefined : handlePressOut}
         testID="train-today-log-session"
       >
-        <View style={[styles.card, { borderColor: accentColor + "55" }]}>
-          <View style={styles.inner}>
-            <View style={[styles.iconCircle, { backgroundColor: accentColor + "22" }]}>
-              <Feather name={iconName} size={22} color={accentColor} />
-            </View>
-            <View style={styles.textBlock}>
-              <ThemedText style={[styles.title, { color: accentColor }]}>{title}</ThemedText>
-              <ThemedText style={styles.subtitle}>{subtitle}</ThemedText>
-            </View>
-            <View style={[styles.ctaButton, { backgroundColor: accentColor }]}>
-              <ThemedText style={styles.ctaText}>Log</ThemedText>
-            </View>
+        <View
+          style={[
+            styles.card,
+            {
+              borderColor: hasLoggedToday
+                ? GREEN + "55"
+                : promptAccent + "55",
+            },
+          ]}
+        >
+          <View style={styles.heightHolder}>
+            {/* Prompt state (underneath) */}
+            <Animated.View style={[styles.inner, promptStyle]}>
+              <View
+                style={[
+                  styles.iconCircle,
+                  { backgroundColor: promptAccent + "22" },
+                ]}
+              >
+                <Feather name={promptIcon} size={22} color={promptAccent} />
+              </View>
+              <View style={styles.textBlock}>
+                <ThemedText style={[styles.title, { color: promptAccent }]}>
+                  {promptTitle}
+                </ThemedText>
+                <ThemedText style={styles.subtitle}>{promptSubtitle}</ThemedText>
+              </View>
+              <View style={[styles.ctaButton, { backgroundColor: promptAccent }]}>
+                <ThemedText style={styles.ctaText}>Log Session</ThemedText>
+              </View>
+            </Animated.View>
+
+            {/* Complete state (on top, fades in) */}
+            <Animated.View style={[styles.inner, completeStyle]}>
+              <View style={styles.iconWrap}>
+                <PulseRing color={GREEN} />
+                <View
+                  style={[styles.iconCircle, { backgroundColor: GREEN + "22" }]}
+                >
+                  <Feather name="check-circle" size={22} color={GREEN} />
+                </View>
+              </View>
+              <View style={styles.textBlock}>
+                <ThemedText style={[styles.title, { color: GREEN }]}>
+                  {completeTitle}
+                </ThemedText>
+                <ThemedText style={styles.subtitle}>{completeSubtitle}</ThemedText>
+              </View>
+              <View
+                style={[
+                  styles.doneBadge,
+                  {
+                    backgroundColor: GREEN + "18",
+                    borderColor: GREEN + "44",
+                  },
+                ]}
+              >
+                <Feather name="check" size={14} color={GREEN} />
+              </View>
+            </Animated.View>
           </View>
         </View>
       </Pressable>
     </Animated.View>
   );
 }
-
-const ICON_SIZE = 44;
 
 const styles = StyleSheet.create({
   card: {
@@ -177,10 +223,14 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.md,
   },
+  heightHolder: {
+    height: 44,
+  },
   inner: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
+    height: 44,
   },
   iconWrap: {
     width: ICON_SIZE,
