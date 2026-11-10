@@ -507,11 +507,6 @@ export default function NewEntryScreen() {
   }, [navigation, isEditing, hasData, currentStep]);
 
   const handlePickFromLibrary = async () => {
-    const result = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!result.granted) {
-      Alert.alert("Permission Required", "Please allow access to your media library.");
-      return;
-    }
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images", "videos"],
       allowsEditing: true,

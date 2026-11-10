@@ -89,13 +89,6 @@ export default function EditProfileScreen() {
   }, [navigation, name, age, team, position, preferredFoot, avatarUrl, isSaving]);
 
   const handlePickAvatar = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (permissionResult.granted === false) {
-      Alert.alert("Permission Required", "Please allow access to your photos.");
-      return;
-    }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: "images",
       allowsEditing: true,
