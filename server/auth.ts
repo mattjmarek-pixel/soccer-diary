@@ -1,9 +1,12 @@
 import jwt from "jsonwebtoken";
 
-const SECRET =
-  process.env.JWT_SECRET ||
-  process.env.SESSION_SECRET ||
-  "dev-secret-change-in-production";
+const SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+
+if (!SECRET?.trim()) {
+  throw new Error(
+    "Server startup blocked: set JWT_SECRET or SESSION_SECRET to sign authentication tokens.",
+  );
+}
 
 export interface JwtPayload {
   userId: string;

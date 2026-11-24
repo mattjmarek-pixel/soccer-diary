@@ -1,12 +1,42 @@
 import type { Express } from "express";
 import { createServer, type Server } from "node:http";
 import { eq, and, desc } from "drizzle-orm";
+import { rateLimit } from "express-rate-limit";
 import OpenAI from "openai";
 import bcrypt from "bcryptjs";
 import { db } from "./db/index";
 import { users, diaryEntries, waitlist } from "../shared/schema";
 import { signToken, verifyToken } from "./auth";
 import { requireAuth } from "./middleware";
+import {
+  verifyOAuthIdentity,
+  type OAuthProvider,
+  type VerifiedOAuthIdentity,
+} from "./oauth";
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const authSessionRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const waitlistRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const aiInsightsRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.userId ?? "unauthenticated",
+});
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -19,13 +49,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   /**
    * POST /api/auth/session
    * Body options:
-   *   { provider: "apple", idToken: string, name?: string, email?: string }
-   *   { provider: "google", idToken: string, email: string, name: string }
+   *   { provider: "apple", idToken: string, name?: string }
+   *   { provider: "google", idToken: string, name?: string }
    *   { provider: "email", email: string, password: string, name?: string, isSignUp?: boolean }
    */
-  app.post("/api/auth/session", async (req, res) => {
+  app.post("/api/auth/session", authSessionRateLimiter, async (req, res) => {
     try {
-      const { provider, email, name, idToken, isSignUp, password } = req.body;
+      const { provider, name, idToken, isSignUp, password } = req.body ?? {};
 
       if (!provider) {
         return res.status(400).json({ message: "Provider is required" });
@@ -33,13 +63,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // ── Email / Password ──────────────────────────────────────────────
       if (provider === "email") {
-        if (!email || !password) {
-          return res.status(400).json({ message: "Email and password are required" });
+        const email =
+          typeof req.body?.email === "string"
+            ? req.body.email.trim().toLowerCase()
+            : "";
+
+        if (!email || typeof password !== "string" || password.length === 0) {
+          return res
+            .status(400)
+            .json({ message: "Email and password are required" });
+        }
+
+        if (!emailPattern.test(email)) {
+          return res
+            .status(400)
+            .json({ message: "A valid email address is required" });
         }
 
         if (isSignUp) {
-          if (!name) {
-            return res.status(400).json({ message: "Name is required for sign up" });
+          if (password.length < 8) {
+            return res
+              .status(400)
+              .json({ message: "Password must be at least 8 characters" });
+          }
+
+          if (typeof name !== "string" || !name.trim()) {
+            return res
+              .status(400)
+              .json({ message: "Name is required for sign up" });
           }
 
           const existing = await db
@@ -49,7 +100,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .limit(1);
 
           if (existing.length > 0) {
-            return res.status(409).json({ message: "An account with this email already exists" });
+            return res
+              .status(409)
+              .json({ message: "An account with this email already exists" });
           }
 
           const passwordHash = await bcrypt.hash(password, 12);
@@ -57,75 +110,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const [user] = await db
             .insert(users)
             .values({
-              email: email.toLowerCase(),
-              name,
+              email,
+              name: name.trim(),
               provider: "email",
               passwordHash,
             })
             .returning();
 
-          const token = signToken({ userId: user.id, email: user.email, name: user.name });
-          return res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
+          const token = signToken({
+            userId: user.id,
+            email: user.email,
+            name: user.name,
+          });
+          return res.json({
+            token,
+            user: { id: user.id, email: user.email, name: user.name },
+          });
         } else {
           const [user] = await db
             .select()
             .from(users)
-            .where(eq(users.email, email.toLowerCase()))
+            .where(eq(users.email, email))
             .limit(1);
 
           if (!user || !user.passwordHash) {
-            return res.status(401).json({ message: "Invalid email or password" });
+            return res
+              .status(401)
+              .json({ message: "Invalid email or password" });
           }
 
           const valid = await bcrypt.compare(password, user.passwordHash);
           if (!valid) {
-            return res.status(401).json({ message: "Invalid email or password" });
+            return res
+              .status(401)
+              .json({ message: "Invalid email or password" });
           }
 
-          const token = signToken({ userId: user.id, email: user.email, name: user.name });
-          return res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
+          const token = signToken({
+            userId: user.id,
+            email: user.email,
+            name: user.name,
+          });
+          return res.json({
+            token,
+            user: { id: user.id, email: user.email, name: user.name },
+          });
         }
       }
 
       // ── OAuth (Apple / Google) ───────────────────────────────────────
-      if (!email) {
-        return res.status(400).json({ message: "Email is required for OAuth sign-in" });
+      if (provider !== "apple" && provider !== "google") {
+        return res
+          .status(400)
+          .json({ message: "Unsupported sign-in provider" });
       }
 
-      if (!idToken) {
-        return res.status(400).json({ message: "idToken is required for OAuth sign-in" });
+      if (typeof idToken !== "string" || !idToken.trim()) {
+        return res
+          .status(401)
+          .json({ message: "Sign-in could not be verified" });
       }
 
-      const normalizedEmail = email.toLowerCase();
-      const displayName = name || normalizedEmail.split("@")[0];
+      const oauthProvider = provider as OAuthProvider;
+      let identity: VerifiedOAuthIdentity;
+      try {
+        identity = await verifyOAuthIdentity(oauthProvider, idToken);
+      } catch (error) {
+        console.error("OAuth identity verification failed:", error);
+        return res
+          .status(401)
+          .json({ message: "Sign-in could not be verified" });
+      }
 
-      const existing = await db
+      const [providerMatch] = await db
         .select()
         .from(users)
-        .where(eq(users.email, normalizedEmail))
+        .where(
+          and(
+            eq(users.provider, identity.provider),
+            eq(users.providerId, identity.providerId),
+          ),
+        )
         .limit(1);
 
-      let user: typeof users.$inferSelect;
+      let user = providerMatch;
 
-      if (existing.length > 0) {
-        [user] = existing;
-      } else {
-        [user] = await db
-          .insert(users)
-          .values({
-            email: normalizedEmail,
-            name: displayName,
-            provider,
-            providerId: idToken.slice(0, 64),
-          })
-          .returning();
+      if (!user) {
+        if (!identity.email) {
+          return res
+            .status(401)
+            .json({ message: "Sign-in could not be verified" });
+        }
+
+        const [emailMatch] = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, identity.email))
+          .limit(1);
+
+        if (emailMatch) {
+          [user] = await db
+            .update(users)
+            .set({
+              provider: identity.provider,
+              providerId: identity.providerId,
+            })
+            .where(eq(users.id, emailMatch.id))
+            .returning();
+        } else {
+          const displayName =
+            typeof name === "string" && name.trim()
+              ? name.trim()
+              : identity.email.split("@")[0];
+
+          [user] = await db
+            .insert(users)
+            .values({
+              email: identity.email,
+              name: displayName,
+              provider: identity.provider,
+              providerId: identity.providerId,
+            })
+            .returning();
+        }
       }
 
-      const token = signToken({ userId: user.id, email: user.email, name: user.name });
-      return res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
-    } catch (error: any) {
+      if (!user) {
+        return res
+          .status(401)
+          .json({ message: "Sign-in could not be verified" });
+      }
+
+      const token = signToken({
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+      });
+      return res.json({
+        token,
+        user: { id: user.id, email: user.email, name: user.name },
+      });
+    } catch (error) {
       console.error("Auth error:", error);
-      return res.status(500).json({ message: error.message || "Authentication failed" });
+      return res.status(500).json({ message: "Something went wrong" });
     }
   });
 
@@ -146,8 +273,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { passwordHash: _, ...safeUser } = user;
       return res.json(safeUser);
-    } catch (error: any) {
-      return res.status(500).json({ message: error.message || "Failed to fetch user" });
+    } catch (error) {
+      console.error("Fetch auth profile error:", error);
+      return res.status(500).json({ message: "Something went wrong" });
     }
   });
 
@@ -174,8 +302,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { passwordHash: _, ...safeUser } = updated;
       return res.json(safeUser);
-    } catch (error: any) {
-      return res.status(500).json({ message: error.message || "Failed to update profile" });
+    } catch (error) {
+      console.error("Update auth profile error:", error);
+      return res.status(500).json({ message: "Something went wrong" });
     }
   });
 
@@ -193,8 +322,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .orderBy(desc(diaryEntries.date));
 
       return res.json(entries);
-    } catch (error: any) {
-      return res.status(500).json({ message: error.message || "Failed to fetch entries" });
+    } catch (error) {
+      console.error("Fetch entries error:", error);
+      return res.status(500).json({ message: "Something went wrong" });
     }
   });
 
@@ -215,7 +345,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } = req.body;
 
       if (!date || mood === undefined || durationMinutes === undefined) {
-        return res.status(400).json({ message: "date, mood, and durationMinutes are required" });
+        return res
+          .status(400)
+          .json({ message: "date, mood, and durationMinutes are required" });
       }
 
       const [entry] = await db
@@ -234,8 +366,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .returning();
 
       return res.status(201).json(entry);
-    } catch (error: any) {
-      return res.status(500).json({ message: error.message || "Failed to create entry" });
+    } catch (error) {
+      console.error("Create entry error:", error);
+      return res.status(500).json({ message: "Something went wrong" });
     }
   });
 
@@ -259,7 +392,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existing = await db
         .select()
         .from(diaryEntries)
-        .where(and(eq(diaryEntries.id, id), eq(diaryEntries.userId, req.user!.userId)))
+        .where(
+          and(
+            eq(diaryEntries.id, id),
+            eq(diaryEntries.userId, req.user!.userId),
+          ),
+        )
         .limit(1);
 
       if (existing.length === 0) {
@@ -271,7 +409,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       if (date !== undefined) updates.date = date;
       if (mood !== undefined) updates.mood = mood;
-      if (durationMinutes !== undefined) updates.durationMinutes = durationMinutes;
+      if (durationMinutes !== undefined)
+        updates.durationMinutes = durationMinutes;
       if (notes !== undefined) updates.notes = notes;
       if (skills !== undefined) updates.skills = skills;
       if (videoUrl !== undefined) updates.videoUrl = videoUrl;
@@ -281,12 +420,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [updated] = await db
         .update(diaryEntries)
         .set(updates)
-        .where(and(eq(diaryEntries.id, id), eq(diaryEntries.userId, req.user!.userId)))
+        .where(
+          and(
+            eq(diaryEntries.id, id),
+            eq(diaryEntries.userId, req.user!.userId),
+          ),
+        )
         .returning();
 
       return res.json(updated);
-    } catch (error: any) {
-      return res.status(500).json({ message: error.message || "Failed to update entry" });
+    } catch (error) {
+      console.error("Update entry error:", error);
+      return res.status(500).json({ message: "Something went wrong" });
     }
   });
 
@@ -300,7 +445,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existing = await db
         .select()
         .from(diaryEntries)
-        .where(and(eq(diaryEntries.id, id), eq(diaryEntries.userId, req.user!.userId)))
+        .where(
+          and(
+            eq(diaryEntries.id, id),
+            eq(diaryEntries.userId, req.user!.userId),
+          ),
+        )
         .limit(1);
 
       if (existing.length === 0) {
@@ -309,11 +459,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await db
         .delete(diaryEntries)
-        .where(and(eq(diaryEntries.id, id), eq(diaryEntries.userId, req.user!.userId)));
+        .where(
+          and(
+            eq(diaryEntries.id, id),
+            eq(diaryEntries.userId, req.user!.userId),
+          ),
+        );
 
       return res.json({ success: true });
-    } catch (error: any) {
-      return res.status(500).json({ message: error.message || "Failed to delete entry" });
+    } catch (error) {
+      console.error("Delete entry error:", error);
+      return res.status(500).json({ message: "Something went wrong" });
     }
   });
 
@@ -322,49 +478,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
   /**
    * POST /api/waitlist — add email to waitlist (no auth required)
    */
-  app.post("/api/waitlist", async (req, res) => {
+  app.post("/api/waitlist", waitlistRateLimiter, async (req, res) => {
     try {
       const { email } = req.body;
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return res.status(400).json({ message: "A valid email address is required" });
+        return res
+          .status(400)
+          .json({ message: "A valid email address is required" });
       }
 
-      await db.insert(waitlist).values({ email: email.toLowerCase() }).onConflictDoNothing();
+      await db
+        .insert(waitlist)
+        .values({ email: email.toLowerCase() })
+        .onConflictDoNothing();
 
-      return res.json({ success: true, message: "You're on the list! We'll be in touch." });
-    } catch (error: any) {
-      return res.status(500).json({ message: error.message || "Failed to join waitlist" });
+      return res.json({
+        success: true,
+        message: "You're on the list! We'll be in touch.",
+      });
+    } catch (error) {
+      console.error("Waitlist route error:", error);
+      return res.status(500).json({ message: "Something went wrong" });
     }
   });
 
   // ─── AI INSIGHTS ─────────────────────────────────────────────────────────
 
-  app.post("/api/ai-insights", requireAuth, async (req, res) => {
-    try {
-      const { entries } = req.body;
+  app.post(
+    "/api/ai-insights",
+    requireAuth,
+    aiInsightsRateLimiter,
+    async (req, res) => {
+      try {
+        const { entries } = req.body;
 
-      if (!entries || !Array.isArray(entries) || entries.length === 0) {
-        return res.status(400).json({ message: "Please provide at least one diary entry for analysis." });
-      }
+        if (!entries || !Array.isArray(entries) || entries.length === 0) {
+          return res.status(400).json({
+            message: "Please provide at least one diary entry for analysis.",
+          });
+        }
 
-      const entrySummaries = entries
-        .map(
-          (entry: { date: string; mood: number; duration: number; reflection: string; skills: { category: string; notes: string }[] }) =>
-            `Date: ${entry.date}, Mood: ${entry.mood}/5, Duration: ${entry.duration} min, Reflection: "${entry.reflection}", Skills: ${entry.skills.map((s) => `${s.category} (${s.notes})`).join(", ")}`
-        )
-        .join("\n");
+        const entrySummaries = entries
+          .map(
+            (entry: {
+              date: string;
+              mood: number;
+              duration: number;
+              reflection: string;
+              skills: { category: string; notes: string }[];
+            }) =>
+              `Date: ${entry.date}, Mood: ${entry.mood}/5, Duration: ${entry.duration} min, Reflection: "${entry.reflection}", Skills: ${entry.skills.map((s) => `${s.category} (${s.notes})`).join(", ")}`,
+          )
+          .join("\n");
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are an expert soccer coach and sports psychologist. Analyze the player's training diary entries and provide personalized insights.",
-          },
-          {
-            role: "user",
-            content: `Analyze these training diary entries and respond with a JSON object containing:
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are an expert soccer coach and sports psychologist. Analyze the player's training diary entries and provide personalized insights.",
+            },
+            {
+              role: "user",
+              content: `Analyze these training diary entries and respond with a JSON object containing:
 - "insights": an array of 3-5 personalized insight strings about the player's training patterns
 - "weeklyTip": a single actionable tip for the upcoming week
 - "moodAnalysis": a brief analysis of how mood correlates with training performance
@@ -374,26 +551,26 @@ Training entries:
 ${entrySummaries}
 
 Respond ONLY with valid JSON, no markdown or extra text.`,
-          },
-        ],
-        response_format: { type: "json_object" },
-      });
+            },
+          ],
+          response_format: { type: "json_object" },
+        });
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        return res.status(500).json({ message: "No response received from AI." });
-      }
+        const content = response.choices[0]?.message?.content;
+        if (!content) {
+          return res
+            .status(500)
+            .json({ message: "No response received from AI." });
+        }
 
-      const parsed = JSON.parse(content);
-      return res.json(parsed);
-    } catch (error: any) {
-      console.error("AI Insights error:", error);
-      if (error instanceof SyntaxError) {
-        return res.status(500).json({ message: "Failed to parse AI response." });
+        const parsed = JSON.parse(content);
+        return res.json(parsed);
+      } catch (error) {
+        console.error("AI Insights error:", error);
+        return res.status(500).json({ message: "Something went wrong" });
       }
-      return res.status(500).json({ message: error.message || "Failed to generate insights." });
-    }
-  });
+    },
+  );
 
   /**
    * GET /api/me — returns the authenticated user's profile including isPremium
@@ -412,32 +589,44 @@ Respond ONLY with valid JSON, no markdown or extra text.`,
 
       const { passwordHash: _, ...safeUser } = user;
       return res.json(safeUser);
-    } catch (error: any) {
-      return res.status(500).json({ message: error.message || "Failed to fetch user" });
+    } catch (error) {
+      console.error("Fetch user error:", error);
+      return res.status(500).json({ message: "Something went wrong" });
     }
   });
 
   /**
    * POST /api/upgrade — marks the authenticated user as premium (placeholder for real payment)
    */
-  app.post("/api/upgrade", requireAuth, async (req, res) => {
-    try {
-      const [updated] = await db
-        .update(users)
-        .set({ isPremium: true })
-        .where(eq(users.id, req.user!.userId))
-        .returning();
-
-      if (!updated) {
-        return res.status(404).json({ message: "User not found" });
+  app.post(
+    "/api/upgrade",
+    (req, res, next) => {
+      if (process.env.ALLOW_DEV_UPGRADE !== "true") {
+        return res.status(403).json({ message: "Upgrades are disabled" });
       }
+      next();
+    },
+    requireAuth,
+    async (req, res) => {
+      try {
+        const [updated] = await db
+          .update(users)
+          .set({ isPremium: true })
+          .where(eq(users.id, req.user!.userId))
+          .returning();
 
-      const { passwordHash: _, ...safeUser } = updated;
-      return res.json({ success: true, user: safeUser });
-    } catch (error: any) {
-      return res.status(500).json({ message: error.message || "Failed to upgrade account" });
-    }
-  });
+        if (!updated) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        const { passwordHash: _, ...safeUser } = updated;
+        return res.json({ success: true, user: safeUser });
+      } catch (error) {
+        console.error("Upgrade route error:", error);
+        return res.status(500).json({ message: "Something went wrong" });
+      }
+    },
+  );
 
   const httpServer = createServer(app);
   return httpServer;

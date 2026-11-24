@@ -42,6 +42,8 @@ Create these in your environment (Replit manages them automatically via Secrets)
 | `DATABASE_URL` | PostgreSQL connection string |
 | `SESSION_SECRET` | Secret used to sign JWTs — use a long random string (alias: `JWT_SECRET`) |
 | `JWT_SECRET` | Alternative name for `SESSION_SECRET` — either variable works |
+| `GOOGLE_CLIENT_IDS` | Comma-separated Google OAuth client IDs accepted by the server when verifying sign-in tokens |
+| `ALLOW_DEV_UPGRADE` | Set to `true` only to enable the development-only premium upgrade endpoint |
 | `AI_INTEGRATIONS_OPENAI_API_KEY` | OpenAI API key |
 | `AI_INTEGRATIONS_OPENAI_BASE_URL` | OpenAI API base URL (default: `https://api.openai.com/v1`) |
 | `REPLIT_DEV_DOMAIN` | Set automatically by Replit — used for Expo proxy and CORS |

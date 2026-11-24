@@ -49,6 +49,11 @@ async function migrate() {
       await client.query(sql).catch(() => {});
     }
 
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS users_provider_provider_id_unique
+      ON users (provider, provider_id)
+    `);
+
     // Create diary_entries table
     await client.query(`
       CREATE TABLE IF NOT EXISTS diary_entries (
@@ -77,9 +82,11 @@ async function migrate() {
     `);
 
     // Add isPremium column to users if not present
-    await client.query(
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_premium BOOLEAN NOT NULL DEFAULT false"
-    ).catch(() => {});
+    await client
+      .query(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_premium BOOLEAN NOT NULL DEFAULT false",
+      )
+      .catch(() => {});
 
     await client.query("COMMIT");
     console.log("Migration completed successfully");

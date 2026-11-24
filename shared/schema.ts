@@ -9,27 +9,39 @@ import {
   serial,
   date,
   boolean,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id")
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  email: text("email").notNull().unique(),
-  name: text("name").notNull(),
-  provider: text("provider").notNull().default("email"),
-  providerId: text("provider_id"),
-  avatarUrl: text("avatar_url"),
-  team: text("team"),
-  position: text("position"),
-  preferredFoot: text("preferred_foot"),
-  age: integer("age"),
-  passwordHash: text("password_hash"),
-  isPremium: boolean("is_premium").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    email: text("email").notNull().unique(),
+    name: text("name").notNull(),
+    provider: text("provider").notNull().default("email"),
+    providerId: text("provider_id"),
+    avatarUrl: text("avatar_url"),
+    team: text("team"),
+    position: text("position"),
+    preferredFoot: text("preferred_foot"),
+    age: integer("age"),
+    passwordHash: text("password_hash"),
+    isPremium: boolean("is_premium").notNull().default(false),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`now()`),
+  },
+  (table) => [
+    uniqueIndex("users_provider_provider_id_unique").on(
+      table.provider,
+      table.providerId,
+    ),
+  ],
+);
 
 export const diaryEntries = pgTable("diary_entries", {
   id: varchar("id")
@@ -42,18 +54,26 @@ export const diaryEntries = pgTable("diary_entries", {
   mood: integer("mood").notNull(),
   durationMinutes: integer("duration_minutes").notNull(),
   notes: text("notes"),
-  skills: jsonb("skills").notNull().default(sql`'[]'::jsonb`),
+  skills: jsonb("skills")
+    .notNull()
+    .default(sql`'[]'::jsonb`),
   videoUrl: text("video_url"),
   mediaType: text("media_type"),
   xpAwarded: integer("xp_awarded").notNull().default(0),
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+  createdAt: timestamp("created_at")
+    .notNull()
+    .default(sql`now()`),
+  updatedAt: timestamp("updated_at")
+    .notNull()
+    .default(sql`now()`),
 });
 
 export const waitlist = pgTable("waitlist", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  createdAt: timestamp("created_at")
+    .notNull()
+    .default(sql`now()`),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
